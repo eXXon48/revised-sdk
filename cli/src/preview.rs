@@ -264,7 +264,9 @@ pub fn shot(e: &Engine, project: &Path, rel: &str) -> Result<PathBuf, String> {
     }
     let dest = format!("/work/{rel}");
     let dir = dest.rsplit_once('/').map_or("/work", |d| d.0);
-    let cmd = format!("mkdir -p '{dir}' && import -display :99 -window root '{dest}'");
+    let cmd = format!(
+        "mkdir -p '{dir}' && import -display :99 -window root -crop 800x480+0+0 +repage '{dest}'"
+    );
     let (ok, out) = engine_out(e, &["exec", CONTAINER, "sh", "-c", &cmd])?;
     if ok {
         Ok(project.join(rel))

@@ -164,6 +164,15 @@ fn shot_writes_png_800x480() {
     let _ = down(&e);
 }
 
+// A browser the developer left open on :8750 can answer too: the reply must come from the container Opera (X11).
+fn assert_container_opera(e: &Engine) {
+    let ua = eval(e, "navigator.userAgent").unwrap();
+    assert!(
+        ua.contains("X11"),
+        "reply is not from the container Opera: {ua}"
+    );
+}
+
 #[test]
 fn eval_returns_value() {
     let Some(e) = it().filter(|_| opera()) else {
@@ -171,6 +180,7 @@ fn eval_returns_value() {
     };
     up(&e, &project("eval"), &UpOpts { opera: true }).unwrap();
     assert_eq!(eval(&e, "1+1").unwrap(), "2");
+    assert_container_opera(&e);
     let _ = down(&e);
 }
 
@@ -180,6 +190,7 @@ fn app_visible_after_up() {
         return;
     };
     up(&e, &project("app"), &UpOpts { opera: true }).unwrap();
+    assert_container_opera(&e);
     eval(&e, "simGo('Applications')").unwrap();
     // rows: 4 stock, then the Revised Store row, then pvapp
     for _ in 0..5 {

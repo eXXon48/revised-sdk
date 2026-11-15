@@ -41,14 +41,18 @@ case "$r" in
   *) echo "[preview] install-push failed: $r" >&2; exit 3 ;;
 esac
 
-Xvfb :99 -screen 0 800x480x24 -nolisten tcp &
+# Opera 12.10 has no kiosk mode on Linux and fullscreen needs a window manager. Instead the X screen is
+# taller than the HMI and the Opera window hangs above the top edge, so its tab/address bars are off
+# screen and the page viewport is exactly 800x480 at (0,0). 61 = chrome above the page, 22 = status bar
+# below it (Opera 12.10 default skin); `shot` crops to 800x480.
+Xvfb :99 -screen 0 800x563x24 -nolisten tcp &
 if [ "${START_OPERA:-1}" = 1 ]; then
   # START_OPERA=1 means the developer accepted Opera's license on the command line
   # (`preview up --accept-opera-license`); this only records it in the throwaway profile.
   printf '[State]\nAccept License=1\n' > /tmp/operaprofile/operaprefs.ini
   sleep 1
   DISPLAY=:99 OPERA_PERSONALDIR=/tmp/operaprofile \
-    /opera/*/opera -nosession -geometry 800x480+0+0 -fullscreen \
+    /opera/*/opera -nosession -geometry 800x563+0-61 \
     http://127.0.0.1:8750/jci/gui/index.html &
 fi
 wait
