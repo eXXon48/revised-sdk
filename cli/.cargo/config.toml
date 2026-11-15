@@ -1,0 +1,6 @@
+# Offline, audited builds: crates come from vendor/ (refresh with `cargo vendor vendor`).
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
