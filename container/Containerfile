@@ -21,6 +21,8 @@ RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-to
 FROM toolchain AS build
 COPY cli /src/cli
 COPY container /src/container
+COPY baseline /src/baseline
+COPY templates /src/templates
 RUN cd /src/cli && cargo build --release --locked --offline
 COPY --from=store Cargo.toml Cargo.lock rust-toolchain.toml /store/
 COPY --from=store .cargo /store/.cargo
@@ -43,5 +45,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /store/target/release/revised-daemon /opt/revised/bin/revised-daemon
 COPY --from=build /store/serve.js /opt/revised/sim/serve.js
 COPY --from=build /src/cli/target/release/revised-sdk /usr/local/bin/revised-sdk
+COPY preview /opt/revised/preview
 ENV PATH=/opt/revised/bin:$PATH
 WORKDIR /work

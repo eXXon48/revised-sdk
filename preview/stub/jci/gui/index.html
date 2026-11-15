@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>HMI sim (stock stub)</title>
+<!-- DEV ONLY: minimal stand-in for the stock JCI HMI (/jci/gui/index.html) so sdk.js,
+     the injector and packages run in desktop Opera 12.10 without the unit.
+     Mimics only what sdk.js touches: framework.{sendEventToMmui,_contextChange,getAppInstance},
+     systemApp._build{Applications,Entertainment}DataList + _currentContext, window.log,
+     and a stock document-capture knob handler (to prove the SDK swallows keys). -->
+<style>
+body { margin:0; background:#000; color:#ddd; font:16px Arial, sans-serif; }
+#screen { position:relative; width:800px; height:480px; background:#101010; overflow:hidden; }
+#title { height:48px; line-height:48px; padding-left:16px; background:#222; color:#fff; font-size:20px; }
+#list div { height:56px; line-height:56px; padding-left:24px; border-bottom:1px solid #333; }
+#list div.f { background:#5a0a0c; color:#fff; }
+#home { padding:24px; }
+#bar { width:800px; padding:6px 0; }
+#bar button { margin-right:6px; }
+#log { width:800px; height:180px; overflow:auto; font:12px monospace; color:#9c9; background:#050505; white-space:pre; }
+</style>
+<script type="text/javascript">
+(function () {
+  var logEl = null, pending = [];
+  function out(s) {
+    if (!logEl) { pending.push(s); return; }
+    logEl.appendChild(document.createTextNode(s + "\n"));
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  window.log = { info: function (m) { out(String(m)); }, debug: function (m) { out(String(m)); } };
+  window.__simLogFlush = function (el) { logEl = el; var i; for (i = 0; i < pending.length; i++) out(pending[i]); pending = []; };
+
+  var STOCK = {
+    Applications: ["Vehicle Status Monitor", "Fuel Economy Monitor", "Scheduled Maintenance", "Warning Guidance"],
+    Entertainment: ["FM Radio", "AM Radio", "Bluetooth Audio", "USB Audio"]
+  };
+  function stockList(ctx) {
+    var a = STOCK[ctx] || [], items = [], i;
+    for (i = 0; i < a.length; i++) items.push({ appData: { appName: "stock" + i, mmuiEvent: "Select" + ctx + i }, text1Id: a[i], text1: null, itemStyle: "style01" });
+    return { itemCountKnown: true, itemCount: items.length, items: items };
+  }
+  var systemApp = {
+    _currentContext: { ctxtId: "Home", uiaId: "system" },
+    _buildApplicationsDataList: function () { return stockList("Applications"); },
+    _buildEntertainmentDataList: function () { return stockList("Entertainment"); }
+  };
+  var sim = { ctx: "Home", items: [], focus: 0, mmui: [] };
+  window.__sim = sim;
+
+  function render() {
+    var t = document.getElementById("title"), l = document.getElementById("list"), h = document.getElementById("home"), i, d;
+    t.innerHTML = "";
+    t.appendChild(document.createTextNode(sim.ctx));
+    l.innerHTML = "";
+    h.style.display = sim.ctx === "Home" ? "block" : "none";
+    for (i = 0; i < sim.items.length; i++) {
+      d = document.createElement("div");
+      // stock list shows text1Id (localized id) unless null, then text1 (literal)
+      d.appendChild(document.createTextNode(sim.items[i].text1Id !== null && sim.items[i].text1Id !== undefined ? sim.items[i].text1Id : sim.items[i].text1));
+      if (i === sim.focus) d.className = "f";
+      l.appendChild(d);
+    }
+  }
+  window.framework = {
+    getAppInstance: function (id) { return id === "system" ? systemApp : null; },
+    sendEventToMmui: function (uiaId, eventId) { sim.mmui.push(uiaId + ":" + eventId); log.info("[stock] sendEventToMmui " + uiaId + " " + eventId); },
+    _contextChange: function (o) {
+      sim.ctx = o.ctxtId;
+      systemApp._currentContext = { ctxtId: o.ctxtId, uiaId: o.uiaId };
+      var dl = null;
+      if (o.ctxtId === "Applications") dl = systemApp._buildApplicationsDataList();
+      if (o.ctxtId === "Entertainment") dl = systemApp._buildEntertainmentDataList();
+      sim.items = dl ? dl.items.slice(0, dl.itemCount) : [];
+      sim.focus = 0;
+      log.info("[stock] context " + o.uiaId + "/" + o.ctxtId);
+      render();
+    }
+  };
+  window.simGo = function (ctx) { framework._contextChange({ ctxtId: ctx, uiaId: "system" }); };
+
+  // stock multicontroller: document capture (the SDK listens on window capture, so it runs first)
+  document.addEventListener("keydown", function (e) {
+    var k = e.keyCode || e.which;
+    if (k === 72) { simGo("Home"); e.preventDefault(); return; }                      // H = Home button
+    if (sim.ctx === "Home") return;
+    if (k === 77 || k === 40 || k === 39) { if (sim.focus < sim.items.length - 1) sim.focus++; render(); e.preventDefault(); }
+    else if (k === 78 || k === 38 || k === 37) { if (sim.focus > 0) sim.focus--; render(); e.preventDefault(); }
+    else if (k === 13) { var it = sim.items[sim.focus]; if (it) framework.sendEventToMmui("system", it.appData.mmuiEvent); e.preventDefault(); }
+    else if (k === 8) { simGo("Home"); e.preventDefault(); }
+  }, true);
+
+  window.onload = function () { window.__simLogFlush(document.getElementById("log")); render(); };
+})();
+</script>
+<!-- the stock hook: index.html loads the integration file if present -->
+<script type="text/javascript" src="../../data/integration/developer_mode_GuiConfig.js"></script>
+</head>
+<body>
+<div id="screen"><div id="title"></div><div id="home">Home. Use the buttons below, or H = Home key.<br>Knob: M/N or arrows, Enter = press, Backspace = back.</div><div id="list"></div></div>
+<div id="bar">
+<button onclick="simGo('Applications')">Applications</button>
+<button onclick="simGo('Entertainment')">Entertainment</button>
+<button onclick="simGo('Home')">Home</button>
+</div>
+<div id="log"></div>
+</body>
+</html>

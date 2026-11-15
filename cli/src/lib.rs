@@ -5,5 +5,6 @@ pub mod lint;
 pub mod local;
 pub mod modyaml;
 pub mod new;
+pub mod preview;
 pub mod report;
 pub mod setup;

@@ -1,4 +1,4 @@
-use revised_sdk::{baseline, build, engine, lint, local, new, report, setup};
+use revised_sdk::{baseline, build, engine, lint, local, new, preview, report, setup};
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -29,6 +29,9 @@ fn run(args: Vec<String>) -> i32 {
         return host_command(&rest, json, eng.as_deref());
     }
     let project = dir.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    if cmd == "preview" {
+        return preview_command(&rest, json, eng.as_deref(), &project);
+    }
     if cmd == "baseline" {
         return match rest.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
             ["baseline", "check", d] => baseline::check_cmd(&project, std::path::Path::new(d), baseline::LIST).emit(json),
@@ -114,5 +117,56 @@ fn project_command(rest: &[String], json: bool, project: &std::path::Path) -> i3
             report::Report::new(cmd, json!({"path": shown}), vec![]).emit(json)
         }
         Err(f) => report::Report::new(cmd, json!({}), f).emit(json),
+    }
+}
+
+const OPERA_LICENSE_HELP: &str = "Opera 12.10 comes under its own license. Read it with \
+`podman run --rm -v revised-sdk-opera:/opera:ro revised-sdk:<version> sh -c 'cat /opera/*/LICENSE'`, \
+then add --accept-opera-license to accept it on this machine";
+
+/// `preview up|down|url|eval|shot|logs|key`: drives the preview container from the host.
+fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std::path::Path) -> i32 {
+    const USAGE: &str = "usage: revised-sdk preview up [--accept-opera-license] | down | url | eval '<js>' | shot <file.png> | logs [n] | key <name>";
+    let sub = rest.get(1).map(String::as_str).unwrap_or("");
+    let cmd = format!("preview {sub}");
+    let arg = rest.get(2).map(String::as_str);
+    let accept = rest.iter().any(|a| a == "--accept-opera-license");
+    if !matches!(sub, "up" | "down" | "url" | "eval" | "shot" | "logs" | "key") || (arg.is_none() && matches!(sub, "eval" | "shot" | "key")) {
+        return report::env_error_in(json, "preview", USAGE);
+    }
+    if sub == "up" && !accept {
+        return report::env_error_in(json, &cmd, OPERA_LICENSE_HELP);
+    }
+    let e = match engine::detect(eng) {
+        Ok(e) => e,
+        Err(m) => return report::env_error_in(json, &cmd, &m),
+    };
+    let arg = arg.unwrap_or("");
+    // (text for plain mode, data for --json)
+    let r: Result<(String, serde_json::Value), String> = match sub {
+        "up" => preview::up(&e, project, &preview::UpOpts { opera: true }).map(|u| (u.clone(), json!({"url": u}))),
+        "down" => preview::down(&e).map(|_| ("preview down".into(), json!({}))),
+        "url" => preview::url(&e).map(|u| (u.clone(), json!({"url": u}))),
+        "eval" => preview::eval(&e, arg).map(|v| (v.clone(), json!({"result": v}))),
+        "shot" => preview::shot(&e, project, arg).map(|p| {
+            let p = p.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+            (p.clone(), json!({"path": p}))
+        }),
+        "logs" => preview::logs(&e, arg.parse().unwrap_or(30)).map(|l| (l.join("\n"), json!({"lines": l}))),
+        _ => preview::key(&e, arg).map(|c| (format!("key {arg} ({c})"), json!({"key": arg, "code": c}))),
+    };
+    match r {
+        Ok((text, data)) => {
+            if json {
+                report::Report::new(&cmd, data, vec![]).emit(true)
+            } else {
+                println!("{text}");
+                0
+            }
+        }
+        Err(m) => match m.strip_prefix(preview::ENV) {
+            Some(env) => report::env_error_in(json, &cmd, env),
+            None => report::Report::new(&cmd, json!({}), vec![report::Finding::error(sub, &m)]).emit(json),
+        },
     }
 }
