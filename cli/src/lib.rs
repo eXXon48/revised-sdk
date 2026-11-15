@@ -1,6 +1,8 @@
+pub mod baseline;
 pub mod build;
 pub mod engine;
 pub mod lint;
+pub mod local;
 pub mod modyaml;
 pub mod new;
 pub mod report;

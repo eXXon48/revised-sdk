@@ -1,4 +1,4 @@
-use revised_sdk::{build, engine, lint, new, report, setup};
+use revised_sdk::{baseline, build, engine, lint, local, new, report, setup};
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -29,13 +29,19 @@ fn run(args: Vec<String>) -> i32 {
         return host_command(&rest, json, eng.as_deref());
     }
     let project = dir.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    if cmd == "baseline" {
+        return match rest.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+            ["baseline", "check", d] => baseline::check_cmd(&project, std::path::Path::new(d), baseline::LIST).emit(json),
+            _ => report::env_error_in(json, "baseline", "usage: revised-sdk baseline check <dir>"),
+        };
+    }
     if cmd == "new" || cmd == "build" || cmd == "lint" {
         return project_command(&rest, json, &project);
     }
     if std::env::var_os("REVISED_SDK_IN_CONTAINER").is_none() {
         // container-side commands re-exec in the image
         return match engine::detect(eng.as_deref()).and_then(|e| {
-            engine::run_in_image(&e, &project, None, &without_host_flags(&args))
+            engine::run_in_image(&e, &project, local::load(&project).baseline.as_deref(), &without_host_flags(&args))
         }) {
             Ok(code) => code,
             Err(m) => report::env_error_in(json, &cmd, &m),
