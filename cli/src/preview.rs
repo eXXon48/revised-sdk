@@ -105,7 +105,9 @@ pub fn run_args(tag: &str, project: &str, rvp_rel: &str, opera: bool) -> Vec<Str
 
 /// `shot` target: a `.png` path inside the project.
 pub fn shot_target(rel: &str) -> Result<String, String> {
-    let p = Path::new(rel);
+    // normalise first: on a POSIX host `..\x.png` is one file name, but the container shell sees `..`
+    let rel = rel.replace('\\', "/");
+    let p = Path::new(&rel);
     let bad = p.is_absolute()
         || p.components()
             .any(|c| matches!(c, std::path::Component::ParentDir));
@@ -114,7 +116,7 @@ pub fn shot_target(rel: &str) -> Result<String, String> {
             "shot target must be a .png path inside the project, got {rel:?}"
         ));
     }
-    Ok(rel.replace('\\', "/"))
+    Ok(rel)
 }
 
 fn engine_out(e: &Engine, args: &[&str]) -> Result<(bool, String), String> {

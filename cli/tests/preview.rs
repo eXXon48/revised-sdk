@@ -73,6 +73,10 @@ fn shot_path_must_stay_inside_the_project() {
     assert!(shot_target("../s.png").is_err());
     assert!(shot_target("/tmp/s.png").is_err());
     assert!(shot_target("s.txt").is_err());
+    assert!(shot_target("..\\x.png").is_err());
+    assert!(shot_target("a\\..\\..\\x.png").is_err());
+    assert!(shot_target("\\x.png").is_err());
+    assert_eq!(shot_target("a\\b.png").unwrap(), "a/b.png");
 }
 
 // ---- integration (real image + engine; REVISED_SDK_IT=1) ----
@@ -121,15 +125,47 @@ fn up_down_up_idempotent() {
 fn eval_timeout_is_exit_1() {
     let Some(e) = it() else { return };
     let p = project("timeout");
-    up(&e, &p, &UpOpts { opera: false }).unwrap(); // no page of ours: nobody should answer
-    if let Ok(v) = eval(&e, "1+1") {
-        // a browser the developer left open on 127.0.0.1:8750 answered: no way to test silence
-        eprintln!("skipped: a foreign page answered ({v})");
-        let _ = down(&e);
-        return;
+    // Start the container by hand on other host ports: a browser the developer left open on
+    // 127.0.0.1:2777/:8750 cannot reach it, so nobody can answer and the silence path always runs.
+    let rvp = revised_sdk::build::build(&p).unwrap();
+    let rel = rvp
+        .strip_prefix(&p)
+        .unwrap()
+        .to_string_lossy()
+        .replace('\\', "/");
+    let mut args = run_args(
+        &revised_sdk::engine::image_tag(),
+        &revised_sdk::engine::abs_host_path(&p).unwrap(),
+        &rel,
+        false,
+    );
+    for a in args.iter_mut() {
+        *a = a
+            .replace("127.0.0.1:2777:", "127.0.0.1:12777:")
+            .replace("127.0.0.1:8750:", "127.0.0.1:18750:");
     }
-    let err = eval(&e, "1+1").unwrap_err();
-    assert!(err.contains("no reply"), "{err}");
+    args.splice(2..2, ["--log-driver".to_string(), "k8s-file".to_string()]);
+    let _ = Command::new(&e.bin).args(["rm", "-f", CONTAINER]).output();
+    let o = Command::new(&e.bin).args(&args).output().unwrap();
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let mut ready = false;
+    for _ in 0..120 {
+        let l = Command::new(&e.bin)
+            .args(["logs", CONTAINER])
+            .output()
+            .unwrap();
+        let t = format!(
+            "{}{}",
+            String::from_utf8_lossy(&l.stdout),
+            String::from_utf8_lossy(&l.stderr)
+        );
+        if t.contains("[preview] installed") {
+            ready = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    assert!(ready, "container never became ready");
     // REVISED_SDK_BIN: the CLI binary to drive (when the tests run outside the build container)
     let bin = std::env::var("REVISED_SDK_BIN")
         .unwrap_or_else(|_| env!("CARGO_BIN_EXE_revised-sdk").into());
@@ -139,13 +175,14 @@ fn eval_timeout_is_exit_1() {
         .args(["preview", "eval", "1+1"])
         .output()
         .unwrap();
-    assert_eq!(
-        out.status.code(),
-        Some(1),
-        "{}",
-        String::from_utf8_lossy(&out.stdout)
-    );
     let _ = down(&e);
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(out.status.code(), Some(1), "{text}");
+    assert!(text.contains("no reply"), "{text}");
 }
 
 #[test]
