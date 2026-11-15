@@ -1,0 +1,4 @@
+cli/target
+.git
+.superpowers
+**/.cargo-ok

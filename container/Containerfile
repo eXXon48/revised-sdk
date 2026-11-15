@@ -1,0 +1,47 @@
+# revised-sdk image. Build context = the revised-sdk checkout; the cmu-re-store checkout
+# comes in as the named build context `store` (`revised-sdk setup --store <path>`).
+# Contains NO Opera and no Mazda file: Opera is unpacked into the `revised-sdk-opera`
+# volume at runtime (`revised-sdk opera install`), after a sha256 check.
+
+# ---- toolchain: Rust 1.99.1 + arm musl soft-float target + zig-as-linker ----
+FROM debian:bookworm-slim AS toolchain
+ARG ZIG_VER=0.14.1
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH=/root/.cargo/bin:/opt/zig:$PATH
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl xz-utils file binutils build-essential \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL "https://ziglang.org/download/${ZIG_VER}/zig-x86_64-linux-${ZIG_VER}.tar.xz" | tar -C /opt -xJ \
+    && ln -s "/opt/zig-x86_64-linux-${ZIG_VER}" /opt/zig
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1 \
+    && rustup target add arm-unknown-linux-musleabi \
+    && cargo install --locked cargo-zigbuild
+
+# ---- build: the CLI (vendored crates) and revised-daemon (x86_64, from the store checkout) ----
+FROM toolchain AS build
+COPY cli /src/cli
+COPY container /src/container
+RUN cd /src/cli && cargo build --release --locked --offline
+COPY --from=store Cargo.toml Cargo.lock rust-toolchain.toml /store/
+COPY --from=store .cargo /store/.cargo
+COPY --from=store src /store/src
+COPY --from=store vendor /store/vendor
+COPY --from=store stock /store/stock
+COPY --from=store daemon /store/daemon
+RUN cd /store && cargo build --release --locked --offline -p revised-daemon
+COPY --from=store local-sim/serve.js /store/serve.js
+
+# ---- final ----
+FROM toolchain
+# Opera 12.10 x86_64 runtime libs (Qt-free build; GStreamer 0.10 is not in bookworm and is optional).
+# ponytail: best-known set; verify with `ldd` on the Opera binary once `opera install --image` ran.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        nodejs xvfb imagemagick \
+        libx11-6 libxext6 libxrender1 libxt6 libsm6 libice6 libxcursor1 \
+        libfreetype6 libfontconfig1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=build /store/target/release/revised-daemon /opt/revised/bin/revised-daemon
+COPY --from=build /store/serve.js /opt/revised/sim/serve.js
+COPY --from=build /src/cli/target/release/revised-sdk /usr/local/bin/revised-sdk
+ENV PATH=/opt/revised/bin:$PATH
+WORKDIR /work

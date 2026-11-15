@@ -1,4 +1,4 @@
-use revised_sdk::{engine, report};
+use revised_sdk::{engine, report, setup};
 use std::path::PathBuf;
 
 fn main() {
@@ -24,6 +24,9 @@ fn run(args: Vec<String>) -> i32 {
             "usage: revised-sdk [--json] [--engine podman|docker] [-C dir] <command>",
         );
     };
+    if cmd == "setup" || cmd == "opera" {
+        return host_command(&rest, json, eng.as_deref());
+    }
     let project = dir.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
     if std::env::var_os("REVISED_SDK_IN_CONTAINER").is_none() {
         // container-side commands re-exec in the image
@@ -50,4 +53,38 @@ fn without_host_flags(args: &[String]) -> Vec<String> {
         }
     }
     out
+}
+
+/// Commands that run on the host (they manage the image itself).
+fn host_command(rest: &[String], json: bool, eng: Option<&str>) -> i32 {
+    let val = |flag: &str| rest.iter().position(|a| a == flag).and_then(|i| rest.get(i + 1)).map(PathBuf::from);
+    let has = |flag: &str| rest.iter().any(|a| a == flag);
+    let engine = engine::detect(eng).ok();
+    if rest[0] == "setup" {
+        let (store, sdk) = (val("--store"), val("--sdk"));
+        return setup::setup(&setup::SetupOpts {
+            store: store.as_deref(),
+            sdk: sdk.as_deref(),
+            engine: engine.as_ref(),
+            dry_run: has("--dry-run"),
+            json,
+        });
+    }
+    if rest.get(1).map(String::as_str) != Some("install") {
+        return report::env_error_in(json, "opera", "usage: revised-sdk opera install [--host|--image]");
+    }
+    let os = std::env::consts::OS;
+    let dir = match setup::host_dir(os, &|k| std::env::var(k).ok()) {
+        Ok(d) => d,
+        Err(m) => return report::env_error_in(json, "opera install", &m),
+    };
+    setup::opera_install(&setup::OperaOpts {
+        manifest: setup::OPERA_MANIFEST,
+        os,
+        image: !has("--host"),
+        host_dir: dir,
+        engine: engine.as_ref(),
+        json,
+        fetch: &setup::curl_fetch,
+    })
 }
