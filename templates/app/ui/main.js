@@ -7,11 +7,11 @@ RevisedHMI.register("{{name}}/{{name}}", {
     document.getElementsByTagName("head")[0].appendChild(link);
 
     var title = document.createElement("div");
-    title.className = "{{name}}-title";
+    title.className = "app-{{name}}-title";
     title.appendChild(document.createTextNode("{{name}}"));
 
     var row = document.createElement("div");
-    row.className = "{{name}}-row {{name}}-row-focus";
+    row.className = "app-{{name}}-row app-{{name}}-row-focus";
     row.appendChild(document.createTextNode("Hello from {{name}}"));
 
     ctx.root.appendChild(title);

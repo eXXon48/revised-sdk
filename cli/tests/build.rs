@@ -89,3 +89,15 @@ fn cli_new_exit_codes() {
     assert_eq!(o.status.code(), Some(0));
     assert!(base.join("c1/dist/c1-0.1.0.rvp").is_file());
 }
+
+#[test]
+fn new_leading_digit_name_gives_valid_css() {
+    // Package Format allows a leading digit (`1app`); CSS class names must not start with one.
+    let p = new_project(&tmp("digit"), "app", "1app").unwrap();
+    let css = std::fs::read_to_string(p.join("ui/style.css")).unwrap();
+    let js = std::fs::read_to_string(p.join("ui/main.js")).unwrap();
+    for sel in css.lines().filter_map(|l| l.trim().strip_prefix('.')) {
+        assert!(sel.as_bytes()[0].is_ascii_alphabetic(), "invalid class selector: .{sel}");
+    }
+    assert!(css.contains(".app-1app-title") && js.contains("\"app-1app-title\""), "{css}\n{js}");
+}
