@@ -70,26 +70,32 @@ pub fn ensure_image(e: &Engine, tag: &str) -> Result<(), String> {
     }
 }
 
-/// Re-run `revised-sdk <args>` inside the image; returns its exit code (2 on environment failure).
-pub fn run_in_image(e: &Engine, project: &Path, baseline: Option<&Path>, args: &[String]) -> i32 {
+/// Absolute, engine-ready path. `absolute` (not `canonicalize`) avoids `\\?\` on Windows;
+/// a relative path would be read by the engine as a named volume.
+pub fn abs_host_path(p: &Path) -> Result<String, String> {
+    std::path::absolute(p)
+        .map(|a| host_path(&a))
+        .map_err(|e| format!("cannot resolve path {}: {e}", p.display()))
+}
+
+/// Re-run `revised-sdk <args>` inside the image; returns its exit code.
+/// `Err` = environment failure (caller reports it, exit 2).
+pub fn run_in_image(
+    e: &Engine,
+    project: &Path,
+    baseline: Option<&Path>,
+    args: &[String],
+) -> Result<i32, String> {
     let tag = image_tag();
-    if let Err(m) = ensure_image(e, &tag) {
-        eprintln!("{m}");
-        return 2;
-    }
+    ensure_image(e, &tag)?;
     let mut c = Command::new(&e.bin);
     c.args(["run", "--rm", "-v"])
-        .arg(format!("{}:/work", host_path(project)))
+        .arg(format!("{}:/work", abs_host_path(project)?))
         .args(["-w", "/work", "-v", "revised-sdk-cache:/cache", "-e", "REVISED_SDK_IN_CONTAINER=1"]);
     if let Some(b) = baseline {
-        c.arg("-v").arg(format!("{}:/rootfs:ro", host_path(b)));
+        c.arg("-v").arg(format!("{}:/rootfs:ro", abs_host_path(b)?));
     }
     c.arg(&tag).arg("revised-sdk").args(args);
-    match c.status() {
-        Ok(s) => s.code().unwrap_or(2),
-        Err(err) => {
-            eprintln!("cannot run {}: {err}", e.bin.display());
-            2
-        }
-    }
+    let s = c.status().map_err(|err| format!("cannot run {}: {err}", e.bin.display()))?;
+    Ok(s.code().unwrap_or(2))
 }

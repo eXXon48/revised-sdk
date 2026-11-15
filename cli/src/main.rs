@@ -27,8 +27,10 @@ fn run(args: Vec<String>) -> i32 {
     let project = dir.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
     if std::env::var_os("REVISED_SDK_IN_CONTAINER").is_none() {
         // container-side commands re-exec in the image
-        return match engine::detect(eng.as_deref()) {
-            Ok(e) => engine::run_in_image(&e, &project, None, &without_host_flags(&args)),
+        return match engine::detect(eng.as_deref()).and_then(|e| {
+            engine::run_in_image(&e, &project, None, &without_host_flags(&args))
+        }) {
+            Ok(code) => code,
             Err(m) => report::env_error_in(json, &cmd, &m),
         };
     }
