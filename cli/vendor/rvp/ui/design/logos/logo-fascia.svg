@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 250" width="100%" height="100%">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="metalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="30%" stop-color="#DCDCDC" />
+      <stop offset="70%" stop-color="#808080" />
+      <stop offset="100%" stop-color="#4A4A4A" />
+    </linearGradient>
+    <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF2A2A" />
+      <stop offset="100%" stop-color="#9E0000" />
+    </linearGradient>
+    <linearGradient id="greyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#B0B5BC" />
+      <stop offset="100%" stop-color="#60646B" />
+    </linearGradient>
+    <filter id="redGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="#0E1117" />
+
+  <!-- Extended drawing: front fascia only (Kodo) -->
+  <g opacity="0.18" stroke="#B0B5BC" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- 1. Bonnet and wing shoulders -->
+    <!-- Outer contours of the wide arches -->
+    <path d="M 120,90 Q 60,60 -10,130" stroke-width="2" />
+    <path d="M 680,90 Q 740,60 810,130" stroke-width="2" />
+    <!-- Main bonnet lines running to the grille -->
+    <path d="M 230,110 Q 180,40 120,-10" stroke-width="1.5" opacity="0.7" />
+    <path d="M 570,110 Q 620,40 680,-10" stroke-width="1.5" opacity="0.7" />
+    <!-- Inner ribs (centre relief) -->
+    <path d="M 310,115 Q 290,50 320,-10" stroke-width="1.5" opacity="0.4" />
+    <path d="M 490,115 Q 510,50 480,-10" stroke-width="1.5" opacity="0.4" />
+
+    <!-- 2. Headlights -->
+    <!-- Outer headlight contour -->
+    <path d="M 130,105 L 90,85 Q 160,70 230,95 Q 190,110 130,105 Z" stroke-width="2.5" />
+    <path d="M 670,105 L 710,85 Q 640,70 570,95 Q 610,110 670,105 Z" stroke-width="2.5" />
+    <!-- Lenses -->
+    <circle cx="165" cy="92" r="7" stroke-width="1.5" />
+    <circle cx="165" cy="92" r="12" opacity="0.5" />
+    <circle cx="635" cy="92" r="7" stroke-width="1.5" />
+    <circle cx="635" cy="92" r="12" opacity="0.5" />
+    <!-- LED DRL (light arcs inside the headlights) -->
+    <path d="M 105,90 Q 150,75 190,92" stroke-width="3" opacity="0.8" />
+    <path d="M 695,90 Q 650,75 610,92" stroke-width="3" opacity="0.8" />
+
+    <!-- 3. Grille -->
+    <!-- Signature wing (chrome bar under the grille, running into the headlights) -->
+    <path d="M 130,105 Q 220,215 400,215 Q 580,215 670,105" stroke-width="5" />
+    <!-- Inner line that gives the wing depth -->
+    <path d="M 140,110 Q 230,205 400,205 Q 570,205 660,110" stroke-width="1.5" opacity="0.5" />
+    <!-- Upper edge of the grille -->
+    <path d="M 245,115 Q 400,100 555,115" stroke-width="2" />
+    <!-- Horizontal grille slats (emphasise width) -->
+    <path d="M 265,135 Q 400,125 535,135" stroke-width="1.5" opacity="0.3" />
+    <path d="M 285,155 Q 400,145 515,155" stroke-width="1.5" opacity="0.3" />
+    <path d="M 310,175 Q 400,165 490,175" stroke-width="1.5" opacity="0.3" />
+    <path d="M 340,195 Q 400,185 460,195" stroke-width="1.5" opacity="0.3" />
+
+    <!-- Centre emblem -->
+    <ellipse cx="400" cy="130" rx="26" ry="18" stroke-width="2.5" />
+    <path d="M 378,130 Q 400,152 422,130" stroke-width="2.5" />
+    <path d="M 378,130 Q 400,138 422,130" stroke-width="2.5" />
+
+    <!-- 4. Lower bumper and aero -->
+    <!-- Side air intakes -->
+    <path d="M 60,155 L 40,215 L 110,215" stroke-width="2.5" />
+    <path d="M 50,165 L 55,205" stroke-width="1.5" opacity="0.6" />
+    <path d="M 740,155 L 760,215 L 690,215" stroke-width="2.5" />
+    <path d="M 750,165 L 745,205" stroke-width="1.5" opacity="0.6" />
+    
+    <!-- Bumper side lines -->
+    <path d="M 120,135 Q 160,190 230,225" stroke-width="1.5" opacity="0.6" />
+    <path d="M 680,135 Q 640,190 570,225" stroke-width="1.5" opacity="0.6" />
+
+    <!-- Front splitter (lowest bumper lip) -->
+    <path d="M -10,225 Q 150,205 400,240 Q 650,205 810,225" stroke-width="3" />
+    <!-- Second splitter line for depth -->
+    <path d="M 20,235 Q 150,215 400,250 Q 650,215 780,235" stroke-width="1.5" opacity="0.4" />
+  </g>
+
+  <!-- Decorative circuit elements (CAN bus, boards) -->
+  <g opacity="0.35">
+    <path d="M 50,125 L 120,125 L 145,150" fill="none" stroke="#E11218" stroke-width="2" />
+    <circle cx="50" cy="125" r="3" fill="#E11218" />
+    <circle cx="145" cy="150" r="3" fill="#E11218" />
+    
+    <path d="M 650,75 L 720,75 L 740,95" fill="none" stroke="#60646B" stroke-dasharray="4,4" stroke-width="1.5" />
+    <path d="M 680,185 L 715,185" fill="none" stroke="#E11218" stroke-width="2" filter="url(#redGlow)" />
+    <circle cx="715" cy="185" r="3" fill="#E11218" />
+  </g>
+
+  <!-- Logo (main group) -->
+  <g transform="translate(15, 0)">
+    <!-- Gear (mechanics and debugging) -->
+    <path d="M 375,125 C 375,102.9 392.9,85 415,85" fill="none" stroke="#3A3F47" stroke-dasharray="6,4" stroke-width="3" />
+    <path d="M 360,125 C 360,89.1 389.1,60 425,60 C 460.9,60 490,89.1 490,125" fill="none" stroke="#E11218" stroke-width="2" filter="url(#redGlow)" />
+
+    <!-- Text: CMU -->
+    <text x="80" y="145" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="82" fill="url(#metalGrad)" letter-spacing="-2">CMU</text>
+    
+    <!-- Hyphen separator -->
+    <rect x="295" y="114" width="22" height="10" fill="#60646B" rx="2" />
+
+    <!-- Text: -RE (reverse engineering, custom) -->
+    <text x="325" y="148" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="94" fill="url(#redGrad)" filter="url(#redGlow)" letter-spacing="-1">RE</text>
+
+    <!-- Text: vised -->
+    <text x="462" y="145" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="78" fill="url(#metalGrad)" font-style="italic" letter-spacing="-2">vised</text>
+  </g>
+
+  <!-- Subtitle and tagline (centred) -->
+  <g transform="translate(400, 195)" text-anchor="middle">
+    <text font-family="monospace" font-size="14" letter-spacing="6" font-weight="bold">
+      <tspan fill="#E11218">REVERSE ENGINEERING</tspan>
+      <tspan fill="#60646B"> • </tspan>
+      <tspan fill="#B0B5BC">CUSTOM SUITE</tspan>
+    </text>
+  </g>
+
+</svg>

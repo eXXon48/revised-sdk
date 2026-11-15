@@ -1,4 +1,5 @@
-use revised_sdk::{engine, report, setup};
+use revised_sdk::{build, engine, new, report, setup};
+use serde_json::json;
 use std::path::PathBuf;
 
 fn main() {
@@ -28,6 +29,9 @@ fn run(args: Vec<String>) -> i32 {
         return host_command(&rest, json, eng.as_deref());
     }
     let project = dir.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    if cmd == "new" || cmd == "build" {
+        return project_command(&rest, json, &project);
+    }
     if std::env::var_os("REVISED_SDK_IN_CONTAINER").is_none() {
         // container-side commands re-exec in the image
         return match engine::detect(eng.as_deref()).and_then(|e| {
@@ -87,4 +91,21 @@ fn host_command(rest: &[String], json: bool, eng: Option<&str>) -> i32 {
         json,
         fetch: &setup::curl_fetch,
     })
+}
+
+/// Commands that read and write the project on the host (no container needed).
+fn project_command(rest: &[String], json: bool, project: &std::path::Path) -> i32 {
+    let (cmd, result) = match rest.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        ["new", tpl, name] => ("new", new::new_project(project, tpl, name)),
+        ["new", ..] => return report::env_error_in(json, "new", "usage: revised-sdk new <template> <name>"),
+        ["build"] => ("build", build::build(project)),
+        _ => return report::env_error_in(json, "build", "usage: revised-sdk build"),
+    };
+    match result {
+        Ok(p) => {
+            let shown = p.strip_prefix(project).unwrap_or(&p).to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+            report::Report::new(cmd, json!({"path": shown}), vec![]).emit(json)
+        }
+        Err(f) => report::Report::new(cmd, json!({}), f).emit(json),
+    }
 }

@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 250" width="100%" height="100%">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="metalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="30%" stop-color="#DCDCDC" />
+      <stop offset="70%" stop-color="#808080" />
+      <stop offset="100%" stop-color="#4A4A4A" />
+    </linearGradient>
+    <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF2A2A" />
+      <stop offset="100%" stop-color="#9E0000" />
+    </linearGradient>
+    <linearGradient id="greyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#B0B5BC" />
+      <stop offset="100%" stop-color="#60646B" />
+    </linearGradient>
+    <filter id="redGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="#0E1117" />
+
+  <!-- Silhouette drawing (Kodo design) -->
+  <g opacity="0.15" stroke="#B0B5BC" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Roof and windscreen line -->
+    <path d="M 230,95 L 270,45 Q 400,30 530,45 L 570,95" />
+    <path d="M 200,105 Q 400,120 600,105" />
+
+    <!-- Side mirrors -->
+    <path d="M 185,100 L 150,105 Q 140,110 160,115 L 180,110" />
+    <path d="M 615,100 L 650,105 Q 660,110 640,115 L 620,110" />
+
+    <!-- Bonnet line with pronounced wing arches -->
+    <path d="M 130,140 Q 170,105 250,120 Q 400,135 550,120 Q 630,105 670,140" />
+
+    <!-- Headlights -->
+    <path d="M 170,135 C 210,120 250,130 280,145 C 240,155 190,145 170,135 Z" />
+    <path d="M 630,135 C 590,120 550,130 520,145 C 560,155 610,145 630,135 Z" />
+    <!-- Projector lenses and LED eyebrows -->
+    <circle cx="235" cy="138" r="5" />
+    <path d="M 180,140 Q 210,130 225,137" stroke-width="1.5" />
+    <circle cx="565" cy="138" r="5" />
+    <path d="M 620,140 Q 590,130 575,137" stroke-width="1.5" />
+
+    <!-- Signature wing (chrome bar under the grille) -->
+    <path d="M 270,150 Q 250,170 280,185 C 330,230 470,230 520,185 Q 550,170 530,150" stroke-width="3" />
+    
+    <!-- Upper edge of the grille -->
+    <path d="M 290,165 C 340,155 460,155 510,165" />
+    
+    <!-- Centre emblem -->
+    <ellipse cx="400" cy="153" rx="18" ry="12" />
+    <path d="M 386,153 Q 400,168 414,153" />
+    <path d="M 386,153 Q 400,158 414,153" />
+
+    <!-- Lower bumper and wings -->
+    <path d="M 130,165 L 120,200 Q 150,220 230,220" />
+    <path d="M 670,165 L 680,200 Q 650,220 570,220" />
+    
+    <!-- Vertical intakes and LEDs in the bumper -->
+    <path d="M 160,185 L 180,205" stroke-width="2.5" />
+    <path d="M 640,185 L 620,205" stroke-width="2.5" />
+
+    <!-- Front splitter -->
+    <path d="M 140,225 Q 400,240 660,225" />
+  </g>
+
+  <!-- Decorative circuit elements (CAN bus) -->
+  <g opacity="0.3">
+    <path d="M 50,125 L 120,125 L 145,150" fill="none" stroke="#E11218" stroke-width="2" />
+    <circle cx="50" cy="125" r="3" fill="#E11218" />
+    <circle cx="145" cy="150" r="3" fill="#E11218" />
+    
+    <path d="M 650,75 L 720,75 L 740,95" fill="none" stroke="#60646B" stroke-dasharray="4,4" stroke-width="1.5" />
+    <path d="M 680,185 L 715,185" fill="none" stroke="#E11218" stroke-width="2" filter="url(#redGlow)" />
+    <circle cx="715" cy="185" r="3" fill="#E11218" />
+  </g>
+
+  <!-- Logo (main group) -->
+  <g transform="translate(15, 0)">
+    <!-- Gear (mechanics and debugging) -->
+    <path d="M 375,125 C 375,102.9 392.9,85 415,85" fill="none" stroke="#3A3F47" stroke-dasharray="6,4" stroke-width="3" />
+    <path d="M 360,125 C 360,89.1 389.1,60 425,60 C 460.9,60 490,89.1 490,125" fill="none" stroke="#E11218" stroke-width="2" filter="url(#redGlow)" />
+
+    <!-- Text: CMU -->
+    <text x="80" y="145" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="82" fill="url(#metalGrad)" letter-spacing="-2">CMU</text>
+    
+    <!-- Hyphen separator -->
+    <rect x="295" y="114" width="22" height="10" fill="#60646B" rx="2" />
+
+    <!-- Text: -RE (reverse engineering, custom) -->
+    <text x="325" y="148" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="94" fill="url(#redGrad)" filter="url(#redGlow)" letter-spacing="-1">RE</text>
+
+    <!-- Text: vised -->
+    <text x="462" y="145" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="78" fill="url(#metalGrad)" font-style="italic" letter-spacing="-2">vised</text>
+  </g>
+
+  <!-- Subtitle and tagline (centred) -->
+  <g transform="translate(400, 195)" text-anchor="middle">
+    <text font-family="monospace" font-size="14" letter-spacing="6" font-weight="bold">
+      <tspan fill="#E11218">REVERSE ENGINEERING</tspan>
+      <tspan fill="#60646B"> • </tspan>
+      <tspan fill="#B0B5BC">CUSTOM SUITE</tspan>
+    </text>
+  </g>
+
+</svg>

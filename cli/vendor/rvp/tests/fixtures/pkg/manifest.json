@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "name": "bootspeed",
+  "version": "1.1.0",
+  "author": "CMU-Revised",
+  "targetCMU": "74.00.324A",
+  "category": "performance",
+  "description": "Faster boot.",
+  "minDaemon": "1.0.0",
+  "depends": "t-basic (>= 1.0)",
+  "conflicts": "t-other",
+  "files": [
+    {
+      "live": "/jci/scripts/start_normal_mode.sh",
+      "payload": "payload/jci/scripts/start_normal_mode.sh",
+      "mode": "0755",
+      "owner": "1000:1000",
+      "type": "modify",
+      "apply": "whole-file",
+      "revert": {
+        "z": 1,
+        "a": [
+          2,
+          3
+        ]
+      },
+      "reason": "hook the daemon start into early boot"
+    },
+    {
+      "live": "www/app.js",
+      "payload": "payload/www/app.js",
+      "mode": "0644",
+      "owner": "1000:1000",
+      "type": "new",
+      "apply": "whole-file"
+    }
+  ]
+}

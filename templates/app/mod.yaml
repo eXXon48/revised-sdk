@@ -1,0 +1,11 @@
+name: {{name}}
+version: 0.1.0
+targetCMU: "74.00.324A"
+app:
+  title: "{{name}}"
+  entry: ui/main.js
+  icon: ui/icon.png
+  rows: [apps]
+  background: false
+permissions: []
+changes: []

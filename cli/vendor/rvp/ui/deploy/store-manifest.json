@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "name": "cmu-re-store",
+  "version": "0.3.1",
+  "author": "CMU-Revised",
+  "targetCMU": "74.00.324A",
+  "category": "System mods",
+  "description": "Revised Store: on-HMI package store (daemon + UI)",
+  "minDaemon": "0.1.0",
+  "depends": "",
+  "conflicts": "",
+  "files": [
+    { "live": "bin/revised-daemon", "payload": "payload/bin/revised-daemon", "mode": "0755", "owner": "1000:1000", "type": "new", "apply": "whole-file" },
+    { "live": "ui/controls.js", "payload": "payload/ui/controls.js", "mode": "0644", "owner": "1000:1000", "type": "new", "apply": "whole-file" },
+    { "live": "ui/sdk.js", "payload": "payload/ui/sdk.js", "mode": "0644", "owner": "1000:1000", "type": "new", "apply": "whole-file" },
+    { "live": "ui/hmi.json", "payload": "payload/ui/hmi.json", "mode": "0644", "owner": "1000:1000", "type": "new", "apply": "whole-file" },
+    { "live": "/data/integration/developer_mode_GuiConfig.js", "payload": "payload/developer_mode_GuiConfig.js", "mode": "0644", "owner": "1000:1000", "type": "new", "apply": "whole-file", "reason": "stock index.html loads this exact path; it is the only HMI hook" }
+  ]
+}

@@ -1,0 +1,6 @@
+# rvp build/test image: the bench-proven lang-probe toolchain (Rust stable + zig +
+# cargo-zigbuild, arm-unknown-linux-musleabi) plus host minisign for signature fixtures.
+FROM localhost/langprobe-build
+RUN apt-get update && apt-get install -y --no-install-recommends minisign \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work

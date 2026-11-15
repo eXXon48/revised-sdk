@@ -2,5 +2,10 @@
 [source.crates-io]
 replace-with = "vendored-sources"
 
+[source."git+https://github.com/eXXon48/cmu-re-store?rev=866409f400ec70c2fed846adc36cda0e26add839"]
+git = "https://github.com/eXXon48/cmu-re-store"
+rev = "866409f400ec70c2fed846adc36cda0e26add839"
+replace-with = "vendored-sources"
+
 [source.vendored-sources]
 directory = "vendor"

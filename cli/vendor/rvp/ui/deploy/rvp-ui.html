@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=800, initial-scale=1">
+<title>Revised Store UI mock</title>
+<style>
+  /* Presto/Opera-2.12-safe: literal colors (no CSS vars), no flex/gap,
+     table + absolute layout, -o-transform. Also renders in Chromium. */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;background:#000;font-family:"Segoe UI",Arial,sans-serif;overflow:hidden;}
+  .dev{position:relative;width:800px;height:480px;overflow:hidden;background:#0a0a0a;color:#fff;}
+
+  /* slim on-brand scrollbar: applies in Chromium preview only.
+     Presto shows its native bar (the on-unit overlay uses finger-drag, not this). */
+  .list::-webkit-scrollbar,.pane::-webkit-scrollbar{width:6px;}
+  .list::-webkit-scrollbar-button,.pane::-webkit-scrollbar-button{display:none;width:0;height:0;}
+  .list::-webkit-scrollbar-track,.pane::-webkit-scrollbar-track{background:transparent;}
+  .list::-webkit-scrollbar-thumb,.pane::-webkit-scrollbar-thumb{background:#2d2d2d;border-radius:3px;}
+  .list::-webkit-scrollbar-thumb:active,.pane::-webkit-scrollbar-thumb:active{background:#E11218;}
+  .list,.pane{scrollbar-width:thin;scrollbar-color:#2d2d2d transparent;}
+
+  /* icon system: Iconsax Bold (svgrepo, MIT), fill=currentColor */
+  .i{display:block;fill:currentColor;}
+
+  /* ---- header 48px ---- */
+  .hdr{position:absolute;left:0;top:0;right:0;height:48px;background:#000;
+       border-bottom:1px solid #1c1c1c;z-index:30;}
+  .hdr .burger{position:absolute;left:0;top:0;width:52px;height:48px;cursor:pointer;color:#fff;}
+  .hdr .burger .i{position:absolute;left:13px;top:11px;width:26px;height:26px;}
+  .hdr .title{position:absolute;left:52px;top:0;line-height:48px;font-size:21px;}
+  .hdr .back{position:absolute;right:0;top:0;width:56px;height:48px;cursor:pointer;color:#fff;}
+  .hdr .back .i{position:absolute;right:16px;top:12px;width:24px;height:24px;}
+  .hdr .back:active{background:#151515;}
+
+  /* ---- content ---- */
+  .body{position:absolute;left:0;right:0;top:48px;bottom:0;overflow:hidden;}
+
+  /* list fills the view above the bottom tab strip */
+  .list{position:absolute;left:0;right:0;top:0;bottom:49px;overflow:auto;padding:12px 16px 16px;}
+  .pane{position:absolute;left:0;right:0;top:0;bottom:0;overflow:auto;padding:44px 24px;}
+  .pane h1{font-size:26px;margin:0 0 10px;}
+  .pane p{color:#8a8a8a;font-size:15px;margin:0;line-height:1.5;}
+  .empty{padding:48px 16px;text-align:center;color:#8a8a8a;font-size:15px;}
+
+  /* full-width tab strip pinned to the BOTTOM of the view (table = equal widths, no flex) */
+  .tabs{position:absolute;left:0;right:0;bottom:0;height:49px;display:table;table-layout:fixed;
+        width:100%;background:#0c0c0c;border-top:1px solid #1c1c1c;}
+  .tabs .tab{display:table-cell;vertical-align:middle;text-align:center;font-size:15px;color:#8a8a8a;
+        cursor:pointer;text-transform:capitalize;}
+  .tabs .tab.act{color:#fff;box-shadow:inset 0 2px 0 #E11218;}
+  .tabs .tab:active{background:#161616;}
+
+  /* store card (table row = no flex/gap) */
+  .card{display:table;width:100%;margin:0 0 10px;padding:12px 14px;
+        background:#141414;border:1px solid #1c1c1c;border-radius:6px;}
+  .card .ico{display:table-cell;vertical-align:middle;width:56px;height:56px;border-radius:12px;
+        text-align:center;background:#1e1e1e;border:1px solid #2a2a2a;color:#dcdcdc;}
+  .card .ico .i{display:inline-block;vertical-align:middle;width:30px;height:30px;}
+  .card .meta{display:table-cell;vertical-align:middle;width:100%;padding:0 12px 0 14px;}
+  .card .nm{font-size:18px;margin:0 0 3px;}
+  .card .sub{font-size:13px;color:#8a8a8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .btn{display:table-cell;vertical-align:middle;white-space:nowrap;padding:9px 18px;border-radius:5px;
+        font-size:14px;border:1px solid #E11218;color:#fff;background:#b60e13;cursor:pointer;}
+  .btn.ghost{background:transparent;border-color:#444;color:#cfcfcf;}
+
+  /* ---- drawer (absolute, no flex) ---- */
+  .scrim{position:absolute;left:0;right:0;top:48px;bottom:0;background:rgba(0,0,0,.5);z-index:40;display:none;}
+  .scrim.on{display:block;}
+  .draw{position:absolute;left:0;top:48px;bottom:0;width:280px;background:#0d0d0d;
+        border-right:1px solid #2a2a2a;z-index:50;display:none;}
+  .draw.on{display:block;}
+  .draw .item{position:relative;display:block;padding:16px 18px 16px 50px;font-size:18px;
+        border-bottom:1px solid #141414;cursor:pointer;color:#e8e8e8;}
+  .draw .item .i{position:absolute;left:18px;top:50%;margin-top:-11px;width:22px;height:22px;color:#9a9a9a;}
+  .draw .item.act{background:#1a0708;border-left:4px solid #E11218;padding-left:46px;}
+  .draw .item:active{background:#151515;}
+  .draw .item.act .i{color:#fff;}
+  .draw .exit{position:absolute;left:0;right:0;bottom:0;padding:16px 18px 16px 48px;font-size:17px;
+        color:#cfcfcf;border-top:1px solid #2a2a2a;cursor:pointer;background:#0d0d0d;}
+  .draw .exit .i{position:absolute;left:18px;top:50%;margin-top:-10px;width:20px;height:20px;
+        -o-transform:rotate(180deg);transform:rotate(180deg);color:#cfcfcf;}
+  .draw .exit:active{background:#151515;}
+</style>
+</head>
+<body>
+<div class="dev">
+  <!-- header -->
+  <div class="hdr">
+    <div class="burger" data-ic="menu" onclick="dr()"></div>
+    <div class="title">Revised Store</div>
+    <div class="back" data-ic="back" title="Back"></div>
+  </div>
+
+  <!-- content: rendered by JS per selected menu view -->
+  <div class="body" id="view"></div>
+
+  <!-- drawer -->
+  <div class="scrim" id="scrim" onclick="dr(false)"></div>
+  <div class="draw" id="draw">
+    <div class="item" data-ic="home" onclick="pick(this)"><span class="lbl">Revised Home</span></div>
+    <div class="item act" data-ic="category" onclick="pick(this)"><span class="lbl">Apps</span></div>
+    <div class="item" data-ic="setting" onclick="pick(this)"><span class="lbl">System mods</span></div>
+    <div class="item" data-ic="paint" onclick="pick(this)"><span class="lbl">Skins</span></div>
+    <div class="item" data-ic="login" onclick="pick(this)"><span class="lbl">Login / logout</span></div>
+    <div class="exit" data-ic="back" onclick="dr(false)"><span>Exit to Mazda home</span></div>
+  </div>
+</div>
+<script>
+  var ICONS = {
+    menu:'<path d="M17.5401 8.81063C19.1748 8.81063 20.5001 7.48539 20.5001 5.85062C20.5001 4.21586 19.1748 2.89062 17.5401 2.89062C15.9053 2.89062 14.5801 4.21586 14.5801 5.85062C14.5801 7.48539 15.9053 8.81063 17.5401 8.81063Z"/><path d="M6.46 8.81063C8.09476 8.81063 9.42 7.48539 9.42 5.85062C9.42 4.21586 8.09476 2.89062 6.46 2.89062C4.82524 2.89062 3.5 4.21586 3.5 5.85062C3.5 7.48539 4.82524 8.81063 6.46 8.81063Z"/><path d="M17.5401 21.1114C19.1748 21.1114 20.5001 19.7862 20.5001 18.1514C20.5001 16.5166 19.1748 15.1914 17.5401 15.1914C15.9053 15.1914 14.5801 16.5166 14.5801 18.1514C14.5801 19.7862 15.9053 21.1114 17.5401 21.1114Z"/><path d="M6.46 21.1114C8.09476 21.1114 9.42 19.7862 9.42 18.1514C9.42 16.5166 8.09476 15.1914 6.46 15.1914C4.82524 15.1914 3.5 16.5166 3.5 18.1514C3.5 19.7862 4.82524 21.1114 6.46 21.1114Z"/>',
+    back:'<path d="M18 9.32919V14.6692C18 17.9892 15.65 19.3392 12.78 17.6892L11.5 16.9492C11.19 16.7692 11 16.4392 11 16.0792V7.91919C11 7.55919 11.19 7.22919 11.5 7.04919L12.78 6.30919C15.65 4.65919 18 6.00919 18 9.32919Z"/><path d="M9.99859 8.79152V15.2215C9.99859 15.6115 9.57859 15.8515 9.24859 15.6515L8.14859 15.0115C5.27859 13.3615 5.27859 10.6415 8.14859 8.99152L9.24859 8.35152C9.57859 8.16152 9.99859 8.40152 9.99859 8.79152Z"/>',
+    monitor:'<path d="M17.56 2H6.41C3.98 2 2 3.98 2 6.41V12.91V13.11C2 15.55 3.98 17.52 6.41 17.52H10.25C10.8 17.52 11.25 17.97 11.25 18.52V19.49C11.25 20.04 10.8 20.49 10.25 20.49H7.83C7.42 20.49 7.08 20.83 7.08 21.24C7.08 21.65 7.41 22 7.83 22H16.18C16.59 22 16.93 21.66 16.93 21.25C16.93 20.84 16.59 20.5 16.18 20.5H13.76C13.21 20.5 12.76 20.05 12.76 19.5V18.53C12.76 17.98 13.21 17.53 13.76 17.53H17.57C20.01 17.53 21.98 15.55 21.98 13.12V12.92V6.42C21.97 3.98 19.99 2 17.56 2Z"/>',
+    sound:'<path d="M3 16.5C2.59 16.5 2.25 16.16 2.25 15.75V8.25C2.25 7.84 2.59 7.5 3 7.5C3.41 7.5 3.75 7.84 3.75 8.25V15.75C3.75 16.16 3.41 16.5 3 16.5Z"/><path d="M7.5 19C7.09 19 6.75 18.66 6.75 18.25V5.75C6.75 5.34 7.09 5 7.5 5C7.91 5 8.25 5.34 8.25 5.75V18.25C8.25 18.66 7.91 19 7.5 19Z"/><path d="M12 21.5C11.59 21.5 11.25 21.16 11.25 20.75V3.25C11.25 2.84 11.59 2.5 12 2.5C12.41 2.5 12.75 2.84 12.75 3.25V20.75C12.75 21.16 12.41 21.5 12 21.5Z"/><path d="M16.5 19C16.09 19 15.75 18.66 15.75 18.25V5.75C15.75 5.34 16.09 5 16.5 5C16.91 5 17.25 5.34 17.25 5.75V18.25C17.25 18.66 16.91 19 16.5 19Z"/><path d="M21 16.5C20.59 16.5 20.25 16.16 20.25 15.75V8.25C20.25 7.84 20.59 7.5 21 7.5C21.41 7.5 21.75 7.84 21.75 8.25V15.75C21.75 16.16 21.41 16.5 21 16.5Z"/>',
+    map:'<path d="M9.14844 7.48828C8.58844 7.48828 8.14844 7.93828 8.14844 8.48828C8.14844 9.03828 8.59844 9.48828 9.14844 9.48828C9.69844 9.48828 10.1484 9.03828 10.1484 8.48828C10.1484 7.93828 9.69844 7.48828 9.14844 7.48828Z"/><path d="M21.46 5.04C20.62 3.09 18.77 2 16.19 2H7.81C4.6 2 2 4.6 2 7.81V16.19C2 18.77 3.09 20.62 5.04 21.46C5.23 21.54 5.45 21.49 5.59 21.35L21.35 5.59C21.5 5.44 21.55 5.22 21.46 5.04ZM10.53 12.24C10.14 12.62 9.63 12.8 9.12 12.8C8.61 12.8 8.1 12.61 7.71 12.24C6.69 11.28 5.57 9.75 6 7.93C6.38 6.28 7.84 5.54 9.12 5.54C10.4 5.54 11.86 6.28 12.24 7.94C12.66 9.75 11.54 11.28 10.53 12.24Z"/><path d="M19.4689 20.5295C19.6889 20.7495 19.6589 21.1095 19.3889 21.2595C18.5089 21.7495 17.4389 21.9995 16.1889 21.9995H7.80892C7.51892 21.9995 7.39892 21.6595 7.59892 21.4595L13.6389 15.4195C13.8389 15.2195 14.1489 15.2195 14.3489 15.4195L19.4689 20.5295Z"/><path d="M22.0017 7.80892V16.1889C22.0017 17.4389 21.7517 18.5189 21.2617 19.3889C21.1117 19.6589 20.7517 19.6789 20.5317 19.4689L15.4117 14.3489C15.2117 14.1489 15.2117 13.8389 15.4117 13.6389L21.4517 7.59892C21.6617 7.39892 22.0017 7.51892 22.0017 7.80892Z"/>',
+    code:'<path d="M21 10H3C2.45 10 2 10.45 2 11V16.19C2 16.39 2.01 16.59 2.03 16.79C2.23 19.87 4.13 21.77 7.21 21.97C7.41 21.99 7.61 22 7.81 22H16.19C16.39 22 16.59 21.99 16.79 21.97C19.87 21.77 21.77 19.87 21.97 16.79C21.99 16.59 22 16.39 22 16.19V11C22 10.45 21.55 10 21 10ZM8 16.15C8.34 16.65 8.8 17.06 9.33 17.33C9.71 17.51 9.86 17.96 9.67 18.34C9.54 18.6 9.27 18.75 9 18.75C8.89 18.75 8.77 18.72 8.67 18.67C7.89 18.29 7.23 17.7 6.76 16.99C6.36 16.39 6.36 15.61 6.76 15.01C7.23 14.3 7.89 13.71 8.67 13.33C9.04 13.14 9.49 13.29 9.67 13.66C9.86 14.04 9.71 14.49 9.33 14.67C8.8 14.94 8.34 15.35 8 15.85C7.94 15.94 7.94 16.06 8 16.15ZM17.45 16.99C16.97 17.7 16.31 18.29 15.54 18.67C15.43 18.72 15.32 18.75 15.21 18.75C14.93 18.75 14.67 18.6 14.54 18.34C14.35 17.96 14.5 17.51 14.87 17.33C15.41 17.06 15.87 16.65 16.2 16.15C16.27 16.06 16.27 15.94 16.2 15.85C15.87 15.35 15.41 14.94 14.87 14.67C14.5 14.49 14.35 14.04 14.54 13.66C14.72 13.29 15.17 13.14 15.54 13.33C16.31 13.71 16.97 14.3 17.45 15.01C17.85 15.61 17.85 16.39 17.45 16.99Z"/><path d="M22 7.81V8C22 8.55 21.55 9 21 9L3 9.01C2.45 9.01 2 8.56 2 8.01V7.81C2 7.61 2.01 7.41 2.03 7.21C2.23 4.13 4.13 2.23 7.21 2.03C7.41 2.01 7.61 2 7.81 2H16.19C16.39 2 16.59 2.01 16.79 2.03C19.87 2.23 21.77 4.13 21.97 7.21C21.99 7.41 22 7.61 22 7.81Z"/>',
+    speed:'<path d="M19.14 20.25C18.95 20.25 18.76 20.18 18.61 20.04C18.31 19.75 18.31 19.28 18.6 18.98C20.31 17.24 21.25 14.94 21.25 12.5C21.25 7.4 17.1 3.25 12 3.25C6.9 3.25 2.75 7.4 2.75 12.5C2.75 14.93 3.68 17.22 5.38 18.96C5.67 19.26 5.66 19.73 5.37 20.02C5.07 20.31 4.6 20.3 4.31 20.01C2.34 17.99 1.25 15.32 1.25 12.5C1.25 6.57 6.07 1.75 12 1.75C17.93 1.75 22.75 6.57 22.75 12.5C22.75 15.33 21.66 18.01 19.67 20.03C19.53 20.18 19.33 20.25 19.14 20.25Z"/><path d="M11.9991 21.9983C14.142 21.9983 15.8791 20.2611 15.8791 18.1183C15.8791 15.9754 14.142 14.2383 11.9991 14.2383C9.85628 14.2383 8.11914 15.9754 8.11914 18.1183C8.11914 20.2611 9.85628 21.9983 11.9991 21.9983Z"/><path d="M16 8.5C14.9 8.5 14 9.4 14 10.5V11.25C14 11.94 14.56 12.5 15.25 12.5H16C17.1 12.5 18 11.6 18 10.5C18 9.4 17.1 8.5 16 8.5Z"/>',
+    home:'<path d="M20.8593 8.36985L13.9293 2.82985C12.8593 1.96985 11.1293 1.96985 10.0693 2.81985L3.13929 8.36985C2.35929 8.98985 1.85929 10.2998 2.02929 11.2798L3.35929 19.2398C3.59929 20.6598 4.95929 21.8098 6.39929 21.8098H17.5993C19.0293 21.8098 20.3993 20.6498 20.6393 19.2398L21.9693 11.2798C22.1293 10.2998 21.6293 8.98985 20.8593 8.36985ZM11.9993 15.4998C10.6193 15.4998 9.49929 14.3798 9.49929 12.9998C9.49929 11.6198 10.6193 10.4998 11.9993 10.4998C13.3793 10.4998 14.4993 11.6198 14.4993 12.9998C14.4993 14.3798 13.3793 15.4998 11.9993 15.4998Z"/>',
+    category:'<path d="M7.24 2H5.34C3.15 2 2 3.15 2 5.33V7.23C2 9.41 3.15 10.56 5.33 10.56H7.23C9.41 10.56 10.56 9.41 10.56 7.23V5.33C10.57 3.15 9.42 2 7.24 2Z"/><path d="M18.6695 2H16.7695C14.5895 2 13.4395 3.15 13.4395 5.33V7.23C13.4395 9.41 14.5895 10.56 16.7695 10.56H18.6695C20.8495 10.56 21.9995 9.41 21.9995 7.23V5.33C21.9995 3.15 20.8495 2 18.6695 2Z"/><path d="M18.6695 13.4297H16.7695C14.5895 13.4297 13.4395 14.5797 13.4395 16.7597V18.6597C13.4395 20.8397 14.5895 21.9897 16.7695 21.9897H18.6695C20.8495 21.9897 21.9995 20.8397 21.9995 18.6597V16.7597C21.9995 14.5797 20.8495 13.4297 18.6695 13.4297Z"/><path d="M7.24 13.4297H5.34C3.15 13.4297 2 14.5797 2 16.7597V18.6597C2 20.8497 3.15 21.9997 5.33 21.9997H7.23C9.41 21.9997 10.56 20.8497 10.56 18.6697V16.7697C10.57 14.5797 9.42 13.4297 7.24 13.4297Z"/>',
+    setting:'<path d="M20.1 9.2214C18.29 9.2214 17.55 7.9414 18.45 6.3714C18.97 5.4614 18.66 4.3014 17.75 3.7814L16.02 2.7914C15.23 2.3214 14.21 2.6014 13.74 3.3914L13.63 3.5814C12.73 5.1514 11.25 5.1514 10.34 3.5814L10.23 3.3914C9.78 2.6014 8.76 2.3214 7.97 2.7914L6.24 3.7814C5.33 4.3014 5.02 5.4714 5.54 6.3814C6.45 7.9414 5.71 9.2214 3.9 9.2214C2.86 9.2214 2 10.0714 2 11.1214V12.8814C2 13.9214 2.85 14.7814 3.9 14.7814C5.71 14.7814 6.45 16.0614 5.54 17.6314C5.02 18.5414 5.33 19.7014 6.24 20.2214L7.97 21.2114C8.76 21.6814 9.78 21.4014 10.25 20.6114L10.36 20.4214C11.26 18.8514 12.74 18.8514 13.65 20.4214L13.76 20.6114C14.23 21.4014 15.25 21.6814 16.04 21.2114L17.77 20.2214C18.68 19.7014 18.99 18.5314 18.47 17.6314C17.56 16.0614 18.3 14.7814 20.11 14.7814C21.15 14.7814 22.01 13.9314 22.01 12.8814V11.1214C22 10.0814 21.15 9.2214 20.1 9.2214ZM12 15.2514C10.21 15.2514 8.75 13.7914 8.75 12.0014C8.75 10.2114 10.21 8.7514 12 8.7514C13.79 8.7514 15.25 10.2114 15.25 12.0014C15.25 13.7914 13.79 15.2514 12 15.2514Z"/>',
+    paint:'<path d="M19.11 7.47145L15.59 3.95145C12.43 0.801451 10.77 1.96145 8.77005 3.95145L3.11005 9.61145C1.96005 10.7615 1.33005 11.5015 1.10005 12.3215C1.10005 12.3315 1.09005 12.3315 1.09005 12.3315C1.09005 12.3415 1.09005 12.3415 1.09005 12.3415C1.09005 12.3515 1.09005 12.3515 1.09005 12.3515V12.3815C0.680048 13.8415 1.76005 15.0815 3.11005 16.4315L6.64005 19.9415C7.90005 21.2115 8.92005 22.0015 10.05 22.0015C11.18 22.0015 12.15 21.2415 13.45 19.9415L19.11 14.2915C19.6 13.7915 19.96 13.3815 20.24 12.9915C21.53 11.1915 21.19 9.54145 19.11 7.47145ZM18.08 11.3715H18.07C17.77 11.3015 17.46 11.2415 17.15 11.1815C17.13 11.1815 17.11 11.1715 17.08 11.1715C16.38 11.0415 15.67 10.9315 14.95 10.8415H14.91C14.19 10.7515 13.46 10.6815 12.73 10.6415H12.65C12.01 10.6015 11.36 10.5815 10.72 10.5815C9.94005 10.5815 9.16005 10.6215 8.39005 10.6715C8.26005 10.6815 8.14005 10.6915 8.02005 10.7015C7.44005 10.7415 6.86005 10.8015 6.29005 10.8715C6.13005 10.8915 5.98005 10.9115 5.83005 10.9315C5.25005 11.0215 4.68005 11.1115 4.11005 11.2215C3.98005 11.2515 3.86005 11.2715 3.73005 11.2915C3.68005 11.3015 3.62005 11.3115 3.57005 11.3215C3.75005 11.1215 3.96005 10.9115 4.19005 10.6815L9.84005 5.03145C11.66 3.23145 12.28 2.80145 14.52 5.03145L18.03 8.55145C18.57 9.08145 18.93 9.53145 19.15 9.92145C19.58 10.6615 18.9 11.5315 18.08 11.3715Z"/><path d="M20.9499 16.87C20.5699 16.4 20.2399 16 19.4999 16C18.7599 16 18.4299 16.4 18.0599 16.87C17.2599 17.86 16.8999 18.94 17.0299 19.98C17.1799 21.17 18.1999 22 19.4999 22C20.7999 22 21.8199 21.17 21.9699 19.97C22.0999 18.93 21.7499 17.86 20.9499 16.87Z"/>',
+    login:'<path d="M10.7584 2C10.2784 2 9.89844 2.38 9.89844 2.86V11.32H13.5684L11.9984 9.75C11.7084 9.46 11.7084 8.98 11.9984 8.69C12.2884 8.4 12.7684 8.4 13.0584 8.69L15.8984 11.54C16.1884 11.83 16.1884 12.31 15.8984 12.6L13.0584 15.45C12.9084 15.6 12.7184 15.67 12.5284 15.67C12.3384 15.67 12.1484 15.6 11.9984 15.45C11.7084 15.16 11.7084 14.68 11.9984 14.39L13.5584 12.83H9.89844V21.16C9.89844 21.63 10.2784 22.02 10.7584 22.02C16.6484 22.02 20.7584 17.91 20.7584 12.02C20.7584 6.13 16.6384 2 10.7584 2Z"/><path d="M3.98828 11.3203C3.57828 11.3203 3.23828 11.6603 3.23828 12.0703C3.23828 12.4803 3.57828 12.8203 3.98828 12.8203H9.88828V11.3203H3.98828Z"/>'
+  };
+  function svg(name){ return '<svg class="i" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'+(ICONS[name]||'')+'</svg>'; }
+  function paintIcons(){
+    var els = document.querySelectorAll('[data-ic]');
+    for(var i=0;i<els.length;i++){
+      var name = els[i].getAttribute('data-ic');
+      els[i].insertAdjacentHTML('afterbegin', svg(name));
+    }
+  }
+  function dr(on){
+    var d=document.getElementById('draw'), s=document.getElementById('scrim');
+    if(on===undefined) on = !d.classList.contains('on');
+    if(on){ d.classList.add('on'); s.classList.add('on'); }
+    else  { d.classList.remove('on'); s.classList.remove('on'); }
+  }
+
+  /* ---- views + tabs ---- */
+  var VIEWS = {
+    'Revised Home':  { pane:'<h1>Revised Home</h1><p>Your apps, mods and skins in one place.<br>Pick a section from the menu.</p>' },
+    'Apps':          { tabs:['Installed','Available','Featured'] },
+    'System mods':   { tabs:['Installed','Available','Configuration'] },
+    'Skins':         { tabs:['Installed','Available'] },
+    'Login / logout':{ pane:'<h1>Account</h1><p>Sign in to sync your installs across resets.</p><button class="btn" style="margin-top:18px;display:inline-block">Log in</button>' }
+  };
+  var DATA = {
+    'Apps':{
+      Installed:[{ic:'monitor',nm:'Screen Tweaks',sub:'Display · v2.4',act:'Open',ghost:true}],
+      Available:[
+        {ic:'sound',nm:'EQ Unlock',sub:'Audio · v1.1 · 2.1 MB',act:'Install'},
+        {ic:'map',nm:'Offline Maps+',sub:'Nav · v0.9 beta · 18 MB',act:'Install'},
+        {ic:'code',nm:'Dev Console',sub:'Tools · v3.0 · 0.4 MB',act:'Install'},
+        {ic:'speed',nm:'Boost Gauge',sub:'Dash · v1.5 · 1.2 MB',act:'Install'}
+      ],
+      Featured:[
+        {ic:'speed',nm:'Boost Gauge',sub:'Editor pick · v1.5',act:'Install'},
+        {ic:'map',nm:'Offline Maps+',sub:'Trending · v0.9 beta',act:'Install'}
+      ]
+    },
+    'System mods':{
+      Installed:[{ic:'setting',nm:'No-logo boot',sub:'Boot · active',act:'Remove',ghost:true}],
+      Available:[
+        {ic:'setting',nm:'Seatbelt chime off',sub:'CAN · v1.0',act:'Install'},
+        {ic:'code',nm:'Dev menu unlock',sub:'Hidden · v1.2',act:'Install'}
+      ],
+      Configuration:[
+        {ic:'setting',nm:'Auto-open overlay',sub:'on boot',act:'On',ghost:true},
+        {ic:'setting',nm:'Log level',sub:'verbose',act:'Edit',ghost:true}
+      ]
+    },
+    'Skins':{
+      Installed:[{ic:'paint',nm:'Carbon Dark',sub:'active',act:'Applied',ghost:true}],
+      Available:[
+        {ic:'paint',nm:'Blue Night',sub:'theme · 0.3 MB',act:'Install'},
+        {ic:'paint',nm:'Red Sport',sub:'theme · 0.4 MB',act:'Install'}
+      ]
+    }
+  };
+
+  var current='Apps', curTab='Installed';
+  function cardHTML(c){
+    return '<div class="card"><div class="ico">'+svg(c.ic)+'</div>'+
+           '<div class="meta"><p class="nm">'+c.nm+'</p><div class="sub">'+c.sub+'</div></div>'+
+           '<button class="btn'+(c.ghost?' ghost':'')+'">'+c.act+'</button></div>';
+  }
+  function render(){
+    var v=VIEWS[current], h='';
+    document.querySelector('.hdr .title').innerHTML=current;
+    if(v.pane){ h='<div class="pane">'+v.pane+'</div>'; }
+    else {
+      var items=(DATA[current]&&DATA[current][curTab])||[];
+      var cards='';
+      if(items.length){ for(var i=0;i<items.length;i++) cards+=cardHTML(items[i]); }
+      else cards='<div class="empty">Nothing here yet.</div>';
+      h='<div class="list">'+cards+'</div>';
+      var t='';
+      for(var j=0;j<v.tabs.length;j++){
+        var tab=v.tabs[j];
+        t+='<div class="tab'+(tab===curTab?' act':'')+'" onclick="setTab(\''+tab+'\')">'+tab+'</div>';
+      }
+      h+='<div class="tabs">'+t+'</div>';
+    }
+    document.getElementById('view').innerHTML=h;
+    var sc=document.querySelector('#view .list, #view .pane'); if(sc) sc.scrollTop=0;
+  }
+  function setTab(t){ curTab=t; render(); }
+  function pick(el){
+    var items=document.querySelectorAll('.draw .item');
+    for(var i=0;i<items.length;i++) items[i].classList.remove('act');
+    el.classList.add('act');
+    current=el.getElementsByTagName('span')[0].innerHTML.replace(/^\s+|\s+$/g,'');
+    var v=VIEWS[current];
+    curTab=v.tabs?v.tabs[0]:null;
+    render();
+    dr(false);
+  }
+
+  paintIcons();
+  render();
+</script>
+</body>
+</html>

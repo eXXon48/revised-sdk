@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CMU-Revised NATIVE UI KIT</title>
+<style>
+  * { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    user-select: none; 
+  }
+
+  @font-face {
+    font-family: 'MazdaType';
+    /* Using a standard fallback that closely matches the OEM sans-serif font */
+    src: local('Arial'), local('Helvetica Neue'), local('sans-serif');
+  }
+
+  body {
+    background-color: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'MazdaType', Arial, sans-serif;
+  }
+
+  /* 800x480 Fixed CMU Screen Container */
+  .mzd-screen {
+    width: 800px;
+    height: 480px;
+    background: radial-gradient(circle at 50% 50%, #202020 0%, #000000 80%);
+    color: #FFF;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+  }
+
+  /* --- HEADER --- */
+  .mzd-header {
+    height: 54px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* Metallic gradient divider below header */
+  .mzd-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 10px;
+    right: 10px;
+    height: 2px;
+    background: linear-gradient(90deg, 
+      rgba(255,255,255,0) 0%, 
+      rgba(255,255,255,0.4) 15%, 
+      rgba(255,255,255,0.6) 50%, 
+      rgba(255,255,255,0.4) 85%, 
+      rgba(255,255,255,0) 100%);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+
+  .mzd-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mzd-header-icons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mzd-header-title {
+    font-size: 26px;
+    font-weight: normal;
+    color: #F0F0F0;
+    letter-spacing: 0.5px;
+    margin-top: -2px;
+  }
+
+  .mzd-header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 26px;
+    color: #F0F0F0;
+  }
+
+  /* --- MAIN BODY & SIDEBARS --- */
+  .mzd-body {
+    display: flex;
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Left curved edge */
+  .mzd-sidebar-left {
+    width: 60px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .mzd-curve-left {
+    position: absolute;
+    top: -10%;
+    bottom: -10%;
+    left: -30px;
+    width: 80px;
+    border-right: 3px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.8);
+    background: linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(30,30,30,0) 100%);
+  }
+
+  .mzd-back-btn {
+    position: relative;
+    z-index: 2;
+    width: 34px;
+    height: 44px;
+    background: linear-gradient(135deg, #666, #222);
+    border: 2px solid #888;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.3);
+    margin-left: -10px;
+    clip-path: polygon(100% 0, 100% 100%, 20% 50%); /* Arrow shape */
+  }
+
+  .mzd-back-btn::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 34px;
+    background: linear-gradient(135deg, #888, #444);
+    clip-path: polygon(100% 0, 100% 100%, 25% 50%);
+    left: 2px;
+  }
+
+  /* Right curved edge & scrollbar */
+  .mzd-sidebar-right {
+    width: 40px;
+    position: relative;
+  }
+
+  .mzd-curve-right {
+    position: absolute;
+    top: -10%;
+    bottom: -10%;
+    right: -25px;
+    width: 60px;
+    border-left: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.8);
+  }
+
+  .mzd-scrollbar-active {
+    position: absolute;
+    top: 25%; /* represents scroll position */
+    height: 30%;
+    right: -25px;
+    width: 60px;
+    border-left: 4px solid #E11218;
+    border-radius: 50%;
+    box-shadow: -5px 0 15px #E11218, inset 0 0 10px #E11218;
+    z-index: 2;
+  }
+
+  /* --- CONTENT LIST --- */
+  .mzd-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding-top: 5px;
+    z-index: 1;
+  }
+
+  .mzd-item {
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px 0 30px;
+    position: relative;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .mzd-item:last-child {
+    border-bottom: none;
+  }
+
+  /* The rich glowing red focus state */
+  .mzd-item.focus {
+    background: linear-gradient(90deg, 
+      rgba(200,10,10,0) 0%, 
+      rgba(225,18,24,0.7) 10%, 
+      rgba(255,40,40,0.9) 25%, 
+      rgba(225,18,24,0.6) 50%, 
+      rgba(200,10,10,0) 100%);
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+
+  .mzd-item-title {
+    font-size: 28px;
+    color: #FFF;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    white-space: nowrap;
+    z-index: 2;
+  }
+
+  /* Subtitle for the active item */
+  .mzd-item-subtitle {
+    font-size: 24px;
+    color: #E0E0E0;
+    margin-left: 20px;
+  }
+
+  /* --- OEM METALLIC CHECKBOX --- */
+  .mzd-checkbox {
+    width: 32px;
+    height: 32px;
+    border: 2px solid #666;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #444, #1a1a1a);
+    box-shadow: inset 0 1px 3px rgba(255,255,255,0.2), 0 2px 5px rgba(0,0,0,0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2;
+  }
+
+  .mzd-checkbox.checked::after {
+    content: '';
+    display: block;
+    width: 12px;
+    height: 22px;
+    border-right: 4px solid #FFF;
+    border-bottom: 4px solid #FFF;
+    transform: rotate(45deg) translate(-2px, -3px);
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  }
+
+  /* SVG Icon Utilities */
+  .icon-svg {
+    fill: #FFF;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
+  }
+</style>
+</head>
+<body>
+
+  <div class="mzd-screen">
+    
+    <!-- HEADER -->
+    <div class="mzd-header">
+      <div class="mzd-header-left">
+        <div class="mzd-header-icons">
+          <!-- Home Icon -->
+          <svg width="26" height="26" viewBox="0 0 24 24" class="icon-svg">
+            <path d="M12 3L2 12h3v8h5v-6h4v6h5v-8h3L12 3z"/>
+          </svg>
+          <!-- Apps/Service Icon (Overlapping squares with A) -->
+          <svg width="26" height="26" viewBox="0 0 24 24" class="icon-svg" style="margin-left: 4px;">
+            <rect x="3" y="6" width="14" height="14" rx="1" stroke="#FFF" stroke-width="2" fill="none"/>
+            <rect x="7" y="4" width="14" height="14" rx="1" stroke="#FFF" stroke-width="2" fill="#111"/>
+            <text x="14" y="15" font-size="11" font-weight="bold" font-family="Arial" fill="#FFF" text-anchor="middle">A</text>
+          </svg>
+        </div>
+        <div class="mzd-header-title">cmu-revised tweaks</div>
+      </div>
+      
+      <div class="mzd-header-right">
+        <!-- Bluetooth Icon -->
+        <svg width="18" height="22" viewBox="0 0 24 24" class="icon-svg">
+          <path d="M17.71,7.71L12,2V11.58L6.41,6L5,7.41L10.59,13L5,18.59L6.41,20L12,14.41V24L17.71,18.29L13.41,14L17.71,9.71V7.71M14,5.83L15.88,7.71L14,9.58V5.83M14,18.17V14.42L15.88,16.29L14,18.17Z"/>
+        </svg>
+        <span>10:44</span>
+      </div>
+    </div>
+
+    <!-- MAIN BODY -->
+    <div class="mzd-body">
+      
+      <!-- Left Sidebar (Curved Back Button) -->
+      <div class="mzd-sidebar-left">
+        <div class="mzd-curve-left"></div>
+        <div class="mzd-back-btn"></div>
+      </div>
+
+      <!-- Settings Content -->
+      <div class="mzd-content">
+        
+        <!-- Focused Item (Glowing Red) -->
+        <div class="mzd-item focus">
+          <div class="mzd-item-title">Enable touchscreen</div>
+          <div class="mzd-checkbox checked"></div>
+        </div>
+
+        <!-- Normal Item -->
+        <div class="mzd-item">
+          <div class="mzd-item-title">Force Android Auto</div>
+          <div class="mzd-checkbox checked"></div>
+        </div>
+
+        <!-- Normal Item Unchecked -->
+        <div class="mzd-item">
+          <div class="mzd-item-title">aa-touchbridged status</div>
+          <div class="mzd-checkbox"></div>
+        </div>
+
+        <!-- Action Item -->
+        <div class="mzd-item">
+          <div class="mzd-item-title">Restart CMU</div>
+        </div>
+
+      </div>
+
+      <!-- Right Sidebar (Curved Red Scrollbar) -->
+      <div class="mzd-sidebar-right">
+        <div class="mzd-curve-right"></div>
+        <div class="mzd-scrollbar-active"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

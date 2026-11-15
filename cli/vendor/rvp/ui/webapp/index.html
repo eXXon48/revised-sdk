@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revised Store — Test App (offline demo)</title>
+<style>
+  html, body { margin: 0; background: #000; color: #E0E0E0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .wrap { display: flex; min-height: 100vh; }
+  /* same frame the on-unit injector builds: 800x480 overlay, 48px header, scrollport */
+  #app { flex: 0 0 800px; width: 800px; height: 480px; position: relative; overflow: hidden; background: #000; }
+  #hdr { position: absolute; left: 0; top: 0; right: 0; height: 48px; background: #000; border-bottom: 1px solid #1c1c1c; z-index: 2; color: #fff; font-size: 22px; line-height: 48px; }
+  #rvp-inj-title { position: absolute; left: 60px; }
+  #clk { position: absolute; right: 64px; }
+  #port { position: absolute; left: 0; right: 0; top: 48px; bottom: 0; overflow: hidden; }
+  .log-pane { flex: 1 1 40%; border-left: 1px solid #2A2C33; background: #0b0c0e;
+    display: flex; flex-direction: column; min-width: 300px; }
+  .log-head { padding: 10px 16px; border-bottom: 1px solid #2A2C33; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 1px; color: #8A94A6;
+    display: flex; justify-content: space-between; align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #8A94A6; display: inline-block; margin-right: 6px; }
+  .dot.up { background: #3ddc84; box-shadow: 0 0 8px #3ddc84; }
+  .dot.down { background: #E11218; box-shadow: 0 0 8px #E11218; }
+  #log { flex: 1; overflow-y: auto; padding: 8px 12px; font-family: Consolas, monospace;
+    font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+  #log .row { padding: 2px 0; border-bottom: 1px solid #16181c; }
+  #log .t { color: #8A94A6; }
+  #log .c { color: #E11218; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="app">
+      <div id="hdr"><span id="rvp-inj-title">Revised Store</span><span id="clk">12:00</span></div>
+      <div id="port"><div id="host"></div></div>
+    </div>
+    <div class="log-pane">
+      <div class="log-head">
+        <span><span id="dot" class="dot down"></span><span id="status">connecting…</span></span>
+        <span id="count">0 events</span>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script src="controls.js"></script>
+  <script>
+    (function () {
+      var WS_URL = "ws://" + (location.hostname || "localhost") + ":2777";
+      var logEl = document.getElementById("log");
+      var statusEl = document.getElementById("status");
+      var dotEl = document.getElementById("dot");
+      var countEl = document.getElementById("count");
+      var ws = null, n = 0, online = false, ctl = null;
+
+      function append(line, cls) {
+        var row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = line;
+        logEl.insertBefore(row, logEl.firstChild);
+      }
+      function setStatus(txt, state) {
+        statusEl.textContent = txt;
+        dotEl.className = "dot " + (state || "");
+      }
+
+      function connect() {
+        setStatus("connecting… " + WS_URL, "down");
+        try { ws = new WebSocket(WS_URL); }
+        catch (e) { setStatus("bad URL: " + e, "down"); return; }
+        ws.onopen = function () { setStatus("connected " + WS_URL, "up"); };
+        // daemon store frames -> renderer (same path as the on-unit injector)
+        ws.onmessage = function (m) {
+          if (String(m.data).charAt(0) !== "{") return;
+          try { var f = JSON.parse(m.data); if (f.t === "catalog") online = true; ctl.onDaemon(f); } catch (e) {}
+        };
+        ws.onclose = function () {
+          setStatus("disconnected — retrying", "down"); setTimeout(connect, 1500);
+          if (online) { online = false; ctl.onDaemon({ t: "offline" }); }
+        };
+        ws.onerror = function () { setStatus("error — server up on 2777?", "down"); };
+      }
+
+      function send(evt) {
+        var json = JSON.stringify(evt);
+        n++;
+        countEl.textContent = n + (n === 1 ? " event" : " events");
+        var sent = ws && ws.readyState === 1;
+        if (sent) ws.send(json);
+        append('<span class="t">' + new Date(evt.ts).toLocaleTimeString() + '</span> ' +
+               '<span class="c">' + evt.control + '.' + evt.action + '</span> ' +
+               esc(JSON.stringify(evt.value)) + (sent ? '' : '  <span class="t">(not sent — offline)</span>'));
+      }
+      function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+      RevisedTestApp.injectStyles();
+      ctl = RevisedTestApp.render(document.getElementById("host"), send);
+      connect();
+    })();
+  </script>
+</body>
+</html>
