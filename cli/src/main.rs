@@ -1,4 +1,4 @@
-use revised_sdk::{build, engine, new, report, setup};
+use revised_sdk::{build, engine, lint, new, report, setup};
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -29,7 +29,7 @@ fn run(args: Vec<String>) -> i32 {
         return host_command(&rest, json, eng.as_deref());
     }
     let project = dir.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    if cmd == "new" || cmd == "build" {
+    if cmd == "new" || cmd == "build" || cmd == "lint" {
         return project_command(&rest, json, &project);
     }
     if std::env::var_os("REVISED_SDK_IN_CONTAINER").is_none() {
@@ -99,6 +99,7 @@ fn project_command(rest: &[String], json: bool, project: &std::path::Path) -> i3
         ["new", tpl, name] => ("new", new::new_project(project, tpl, name)),
         ["new", ..] => return report::env_error_in(json, "new", "usage: revised-sdk new <template> <name>"),
         ["build"] => ("build", build::build(project)),
+        ["lint"] => return report::Report::new("lint", json!({}), lint::run(project)).emit(json),
         _ => return report::env_error_in(json, "build", "usage: revised-sdk build"),
     };
     match result {

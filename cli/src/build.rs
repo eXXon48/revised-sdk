@@ -44,8 +44,12 @@ fn walk(dir: &Path, rel: &str, out: &mut Vec<String>) -> Result<(), Vec<Finding>
 }
 
 pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
+    let found = crate::lint::run(dir);
+    if crate::lint::has_errors(&found) {
+        return Err(found);
+    }
     let m = modyaml::load(dir)?;
-    let err = |rule: &str, msg: String| vec![Finding::error(rule, &msg)];
+    let err =|rule: &str, msg: String| vec![Finding::error(rule, &msg)];
     let Some(app) = &m.app else {
         return Err(err("no-app", "mod.yaml has no `app:` block; nothing to build".into()));
     };

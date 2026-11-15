@@ -41,7 +41,8 @@ fn build_overwrites_handwritten_hmi_and_reports_missing_entry() {
     let (_, entries) = rvp::pack::unpack_mem(&bytes[7..]).unwrap();
     let hmi = entries.iter().find(|e| e.name == "payload/ui/hmi.json").unwrap();
     assert!(String::from_utf8_lossy(&hmi.data).contains("apiVersion"));
-    std::fs::remove_file(proj.join("ui/main.js")).unwrap();
+    let y = std::fs::read_to_string(proj.join("mod.yaml")).unwrap().replace("ui/main.js", "ui/nope.js");
+    std::fs::write(proj.join("mod.yaml"), y).unwrap();
     let f = build(&proj).unwrap_err();
     assert_eq!(f[0].rule, "entry-missing");
 }
