@@ -23,6 +23,9 @@ ln -sfn $SIM/cmu-re/ui /web/data_persist/ui
 ln -sfn $SIM /web/sim
 ln -sfn $SIM/cmu-re /web/data_persist/cmu-re
 cp $P/stub/data/integration/developer_mode_GuiConfig.js /data/integration/
+# the daemon relays the ctl FIFO (eval, keys) only while cmu-re-dev-bridge is installed; the stub
+# injector evals by itself, so an empty jail file stands in for the package
+mkdir -p $SIM/cmu-re/pkg/cmu-re-dev-bridge/ui && : > $SIM/cmu-re/pkg/cmu-re-dev-bridge/ui/bridge.js
 
 revised-daemon --test-root $SIM --listen 0.0.0.0:2777 --ctl /tmp/rvp-ctl --dev-pair on --wlan eth0 &
 ROOT=/web CATALOG=/nonexistent node /opt/revised/sim/serve.js &
