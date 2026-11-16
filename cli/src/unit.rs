@@ -40,6 +40,10 @@ fn common(key: &Path, port_flag: &str) -> Vec<String> {
         s("ConnectTimeout=10"),
         s("-o"),
         s("StrictHostKeyChecking=accept-new"),
+        s("-o"),
+        s("ServerAliveInterval=5"),
+        s("-o"),
+        s("ServerAliveCountMax=1"),
     ]
 }
 
@@ -64,32 +68,69 @@ pub fn tunnel_args(host: &str, key: &Path, port: u16) -> Vec<String> {
     a
 }
 
-fn run(prog: &str, args: &[String]) -> Result<String, String> {
-    let o = Command::new(prog)
+/// Local deadline for a normal ssh/scp call; `scp` of a package may take longer.
+const SSH_SECS: u64 = 60;
+const SCP_SECS: u64 = 300;
+const TIMED_OUT: &str = "timed out after";
+
+/// Run `prog`; kill it when `secs` pass (a stuck remote command must not hang the CLI).
+fn run(prog: &str, args: &[String], secs: u64) -> Result<String, String> {
+    let mut c = Command::new(prog)
         .args(args)
         .stdin(Stdio::null())
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .map_err(|e| {
             format!("{ENV}cannot run `{prog}` (is OpenSSH installed and on PATH?): {e}")
         })?;
-    if o.status.success() {
-        return Ok(String::from_utf8_lossy(&o.stdout).into_owned());
+    fn drain(p: Option<impl std::io::Read + Send + 'static>) -> std::thread::JoinHandle<String> {
+        std::thread::spawn(move || {
+            let mut b = Vec::new();
+            if let Some(mut p) = p {
+                let _ = p.read_to_end(&mut b);
+            }
+            String::from_utf8_lossy(&b).into_owned()
+        })
     }
-    let code = o.status.code().map_or("signal".into(), |c| c.to_string());
-    Err(format!(
-        "{ENV}`{prog}` failed ({code}): {}",
-        String::from_utf8_lossy(&o.stderr).trim()
-    ))
+    let (out, err) = (drain(c.stdout.take()), drain(c.stderr.take()));
+    let t0 = Instant::now();
+    let status = loop {
+        if let Some(st) = c.try_wait().map_err(|e| format!("{ENV}{prog}: {e}"))? {
+            break Some(st);
+        }
+        if t0.elapsed() >= Duration::from_secs(secs) {
+            let _ = c.kill();
+            let _ = c.wait();
+            break None;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let (out, err) = (
+        out.join().unwrap_or_default(),
+        err.join().unwrap_or_default(),
+    );
+    let Some(st) = status else {
+        return Err(format!("{ENV}`{prog}` {TIMED_OUT} {secs}s: {}", err.trim()));
+    };
+    if st.success() {
+        return Ok(out);
+    }
+    let code = st.code().map_or("signal".into(), |c| c.to_string());
+    Err(format!("{ENV}`{prog}` failed ({code}): {}", err.trim()))
 }
 
 impl Unit {
     pub fn ssh(&self, cmd: &str) -> Result<String, String> {
-        run("ssh", &ssh_args(&self.host, &self.key, cmd))
+        self.ssh_for(cmd, SSH_SECS)
+    }
+    fn ssh_for(&self, cmd: &str, secs: u64) -> Result<String, String> {
+        run("ssh", &ssh_args(&self.host, &self.key, cmd), secs)
     }
     fn scp(&self, from: &str, to: &str) -> Result<(), String> {
         let mut a = common(&self.key, "-P");
         a.extend([from.to_string(), to.to_string()]);
-        run("scp", &a).map(|_| ())
+        run("scp", &a, SCP_SECS).map(|_| ())
     }
     fn remote(&self, path: &str) -> String {
         format!("{}:{path}", self.host)
@@ -165,34 +206,85 @@ fn free_port() -> Result<u16, String> {
     l.local_addr().map(|a| a.port()).map_err(|e| e.to_string())
 }
 
-fn open_tunnel(u: &Unit) -> Result<(Tunnel, u16), String> {
+/// One tunnel attempt on a fresh port. ssh's stderr goes to a temp file, shown when it fails.
+fn try_tunnel(u: &Unit, skip_wait: bool) -> Result<(Tunnel, u16), String> {
     let port = free_port()?;
+    let log = std::env::temp_dir().join(format!(
+        "revised-sdk-tunnel-{}-{port}.log",
+        std::process::id()
+    ));
+    let errf = std::fs::File::create(&log).map_err(|e| format!("{ENV}{}: {e}", log.display()))?;
     let child = Command::new("ssh")
         .args(tunnel_args(&u.host, &u.key, port))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(errf)
         .spawn()
         .map_err(|e| format!("{ENV}cannot run `ssh`: {e}"))?;
     let mut t = Tunnel(child);
-    if std::env::var_os(WS_URL_ENV).is_some() {
+    let fail = |t: &mut Tunnel, why: String| {
+        let _ = t.0.kill();
+        let _ = t.0.wait();
+        let e = std::fs::read_to_string(&log).unwrap_or_default();
+        let _ = std::fs::remove_file(&log);
+        format!("{ENV}{why}: {}", e.trim())
+    };
+    if skip_wait {
+        let _ = std::fs::remove_file(&log);
         return Ok((t, port));
     }
     let t0 = Instant::now();
     while t0.elapsed() < Duration::from_secs(15) {
         if let Ok(Some(st)) = t.0.try_wait() {
-            return Err(format!(
-                "{ENV}ssh tunnel to the daemon exited ({st}); is the daemon running on the unit?"
+            return Err(fail(
+                &mut t,
+                format!(
+                    "ssh tunnel to the daemon exited ({st}); is the daemon running on the unit?"
+                ),
             ));
         }
         if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            // a stolen port also accepts: ssh must still be alive after the connect
+            std::thread::sleep(Duration::from_millis(100));
+            if let Ok(Some(st)) = t.0.try_wait() {
+                return Err(fail(
+                    &mut t,
+                    format!("ssh tunnel exited ({st}) after the port opened"),
+                ));
+            }
+            let _ = std::fs::remove_file(&log);
             return Ok((t, port));
         }
         std::thread::sleep(Duration::from_millis(200));
     }
-    Err(format!(
-        "{ENV}ssh tunnel to the daemon did not come up in 15s"
+    Err(fail(
+        &mut t,
+        "ssh tunnel to the daemon did not come up in 15s".into(),
     ))
+}
+
+/// The tunnel, retried once on a fresh port (the free-port probe can lose a race).
+fn open_tunnel(u: &Unit, skip_wait: bool) -> Result<(Tunnel, u16), String> {
+    try_tunnel(u, skip_wait).or_else(|_| try_tunnel(u, skip_wait))
+}
+
+/// `REVISED_SDK_WS_URL` (test seam): honoured only for a loopback host, and always announced.
+fn ws_override() -> Result<Option<String>, String> {
+    let Ok(url) = std::env::var(WS_URL_ENV) else {
+        return Ok(None);
+    };
+    let host = url.strip_prefix("ws://").map(|r| {
+        if let Some(v6) = r.strip_prefix('[') {
+            v6.split(']').next().unwrap_or("")
+        } else {
+            r.split([':', '/']).next().unwrap_or("")
+        }
+    });
+    if !matches!(host, Some("127.0.0.1" | "localhost" | "::1")) {
+        return Err(format!("{ENV}{WS_URL_ENV}={url} ignored: only ws:// to a loopback host (127.0.0.1, localhost, ::1) is accepted"));
+    }
+    eprintln!("warning: {WS_URL_ENV} is set: using {url} instead of the unit's daemon");
+    Ok(Some(url))
 }
 
 /// Send `install-push` for `remote` and return the daemon's `result` frame.
@@ -258,6 +350,7 @@ fn resolve(rest: &[String], project: &Path, save: bool) -> Result<Unit, String> 
 
 fn push(u: &Unit, project: &Path) -> Result<Value, Vec<Finding>> {
     let env = |m: String| vec![Finding::error("env", &m)];
+    let ov = ws_override().map_err(env)?;
     let rvp = build::build(project)?;
     let version = modyaml::load(project)?.version;
     let file = rvp
@@ -269,8 +362,8 @@ fn push(u: &Unit, project: &Path) -> Result<Value, Vec<Finding>> {
         &u.remote(&format!("{PUSH_DIR}/{file}")),
     )
     .map_err(env)?;
-    let (_tunnel, port) = open_tunnel(u).map_err(env)?;
-    let url = std::env::var(WS_URL_ENV).unwrap_or_else(|_| format!("ws://127.0.0.1:{port}"));
+    let (_tunnel, port) = open_tunnel(u, ov.is_some()).map_err(env)?;
+    let url = ov.unwrap_or_else(|| format!("ws://127.0.0.1:{port}"));
     let r = ws_install(&url, &format!("{PUSH_DIR}/{file}")).map_err(env)?;
     map_result(&r, &version).map_err(|f| vec![f])
 }
@@ -371,20 +464,30 @@ fn shot(u: &Unit, dest: &str) -> Result<String, String> {
 }
 
 fn eval(u: &Unit, js: &str, secs: u64) -> Result<(String, Value), String> {
+    let t0 = Instant::now();
+    let left = || secs.saturating_sub(t0.elapsed().as_secs()).max(1);
+    let no_reply = || {
+        format!("no reply from the page within {secs}s (is the DEV eval bridge installed and the HMI running?)")
+    };
+    // every ssh call is bounded by what is left of the deadline; a stuck one reads as "no reply"
+    let ssh = |cmd: &str| {
+        u.ssh_for(cmd, left())
+            .map_err(|e| if e.contains(TIMED_OUT) { no_reply() } else { e })
+    };
     let grep = format!("grep -F '\"control\":\"eval\"' {UNIT_LOG} || true");
     // grep exits 1 while there is no match: `|| true` keeps "0 replies" from reading as a failure
-    let before = count_replies(&u.ssh(&grep)?);
-    u.ssh(&format!(
-        "printf '%s\\n' '{}' > /tmp/rvp-ctl",
+    let before = count_replies(&ssh(&grep)?);
+    // the FIFO open blocks without a reader: BusyBox `timeout -t` ends it (GNU `timeout 3` would not parse)
+    ssh(&format!(
+        "timeout -t 3 sh -c 'printf \"%s\\n\" \"$1\" > /tmp/rvp-ctl' sh '{}'",
         eval_line(js)
     ))?;
-    let t0 = Instant::now();
     while t0.elapsed() < Duration::from_secs(secs) {
-        if let Some(r) = reply(&u.ssh(&grep)?, before) {
+        if let Some(r) = reply(&ssh(&grep)?, before) {
             let v = r.map_err(|m| format!("script error: {m}"))?;
             return Ok((v.clone(), json!({"result": v})));
         }
         std::thread::sleep(Duration::from_millis(300));
     }
-    Err(format!("no reply from the page within {secs}s (is the DEV eval bridge installed and the HMI running?)"))
+    Err(no_reply())
 }

@@ -15,6 +15,8 @@ fn tmp(name: &str) -> PathBuf {
 
 const FAKE_SSH: &str = r#"#!/bin/sh
 echo "ssh $*" >> "$FAKE_LOG"
+if [ -n "$FAKE_TUNNEL_FAIL" ]; then case "$*" in *" -L "*) echo "Permission denied (publickey)" >&2; exit 255;; esac; fi
+if [ -n "$FAKE_HANG" ]; then exec sleep 300; fi
 case "$*" in *" -L "*) exec sleep 30;; esac
 if [ -n "$FAKE_DOWN" ]; then echo "ssh: connect to host h port 36000: Connection refused" >&2; exit 255; fi
 case "$*" in *rvp-ctl*) touch "$FAKE_DIR/sent";; esac
@@ -290,7 +292,7 @@ fn unit_eval_reads_the_reply_from_the_unit_log() {
     let (code, out, _) = e.run(&a.iter().map(String::as_str).collect::<Vec<_>>(), &[]);
     assert_eq!(code, 0, "{out}");
     assert_eq!(report(&out)["data"]["result"], "42");
-    assert!(e.calls().contains("> /tmp/rvp-ctl"), "{}", e.calls());
+    assert!(e.calls().contains("/tmp/rvp-ctl"), "{}", e.calls());
 }
 
 #[test]
@@ -326,4 +328,76 @@ fn unit_shot_fetches_png() {
     assert_eq!(code, 0, "{out}");
     assert!(png.exists());
     assert!(e.calls().contains("/usr/bin/screenshot"));
+}
+
+#[test]
+fn unit_eval_hung_ssh_returns_exit1_within_deadline() {
+    let e = env("hang");
+    let mut a = vec!["unit".to_string(), "eval".into(), "1".into()];
+    a.extend(unit_flags(&e));
+    let t0 = std::time::Instant::now();
+    let (code, out, _) = e.run(
+        &a.iter().map(String::as_str).collect::<Vec<_>>(),
+        &[("FAKE_HANG", "1")],
+    );
+    assert_eq!(code, 1, "{out}");
+    assert!(out.contains("no reply"), "{out}");
+    assert!(t0.elapsed().as_secs() < 12, "{:?}", t0.elapsed());
+}
+
+#[test]
+fn eval_ctl_write_is_bounded_by_busybox_timeout_and_keepalive() {
+    let e = env("bb");
+    let mut a = vec!["unit".to_string(), "eval".into(), "1".into()];
+    a.extend(unit_flags(&e));
+    e.run(&a.iter().map(String::as_str).collect::<Vec<_>>(), &[]);
+    let c = e.calls();
+    assert!(c.contains("timeout -t 3 sh -c"), "{c}");
+    assert!(
+        c.contains("ServerAliveInterval=5") && c.contains("ServerAliveCountMax=1"),
+        "{c}"
+    );
+}
+
+#[test]
+fn non_loopback_ws_override_is_rejected() {
+    let e = env("ovr");
+    for bad in [
+        "ws://evil.example:2777",
+        "ws://127.0.0.1.evil.example:1",
+        "wss://127.0.0.1:1",
+    ] {
+        let a = e.push_args();
+        let (code, out, _) = e.run(
+            &a.iter().map(String::as_str).collect::<Vec<_>>(),
+            &[(unit::WS_URL_ENV, bad)],
+        );
+        assert_eq!(code, 2, "{bad}: {out}");
+        assert!(out.contains("loopback"), "{out}");
+    }
+    assert_eq!(e.calls(), "", "rejected before any ssh");
+}
+
+#[test]
+fn loopback_ws_override_warns_on_stderr() {
+    let e = env("warn");
+    let (url, _rx) = daemon(
+        json!({"t": "result", "name": "t1", "op": "install-push", "ok": true, "restart": false}),
+    );
+    let (code, _, err) = go(&e, &e.push_args(), &url);
+    assert_eq!(code, 0);
+    assert!(err.contains("REVISED_SDK_WS_URL"), "{err}");
+}
+
+#[test]
+fn tunnel_failure_shows_ssh_stderr_after_one_retry() {
+    let e = env("tun");
+    let a = e.push_args();
+    let (code, out, _) = e.run(
+        &a.iter().map(String::as_str).collect::<Vec<_>>(),
+        &[("FAKE_TUNNEL_FAIL", "1")],
+    );
+    assert_eq!(code, 2, "{out}");
+    assert!(out.contains("Permission denied"), "{out}");
+    assert_eq!(e.calls().matches(" -L ").count(), 2, "{}", e.calls());
 }
