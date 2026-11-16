@@ -4,12 +4,15 @@
 use crate::build;
 use crate::engine::{abs_host_path, ensure_image, image_tag, Engine, Kind};
 use crate::setup::OPERA_VOLUME;
+use crate::unit;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
 pub const CONTAINER: &str = "revised-sdk-preview";
 pub const URL: &str = "http://127.0.0.1:8750/jci/gui/index.html";
+/// Local deadline for one ctl write (the in-container `timeout` is 3 s; `exec` itself can take seconds).
+const CTL_SECS: u64 = 15;
 const EVAL_SECS: u64 = 6;
 const UP_SECS: u64 = 90;
 /// Prefix of an `Err` that is an environment problem (exit 2), not a failed check (exit 1).
@@ -222,12 +225,18 @@ fn ctl(e: &Engine, line: &str) -> Result<(), String> {
     if !running(e) {
         return Err(NOT_UP.into());
     }
+    // the FIFO open blocks while nobody reads it (daemon gone): GNU `timeout` ends it inside the
+    // container, the local deadline ends the exec client if even that hangs
     let sh = "printf '%s\\n' \"$1\" > /tmp/rvp-ctl";
-    let (ok, out) = engine_out(e, &["exec", CONTAINER, "sh", "-c", sh, "sh", line])?;
-    if ok {
-        Ok(())
-    } else {
-        Err(out)
+    let args: Vec<String> = ["exec", CONTAINER, "timeout", "3", "sh", "-c", sh, "sh", line]
+        .map(String::from)
+        .into();
+    match unit::run(&e.bin.to_string_lossy(), &args, CTL_SECS) {
+        Ok(_) => Ok(()),
+        Err(m) if m.contains("failed (124)") || m.contains(unit::TIMED_OUT) => Err(
+            "no reply from the page: the control pipe is not being read (is the preview daemon running?)".into(),
+        ),
+        Err(m) => Err(m),
     }
 }
 

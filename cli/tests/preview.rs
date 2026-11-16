@@ -245,3 +245,38 @@ fn app_visible_after_up() {
     assert!(seen, "app overlay never showed");
     let _ = down(&e);
 }
+
+#[test]
+fn license_help_names_the_detected_engine_and_real_image() {
+    let d = std::env::temp_dir().join(format!("rsdk-lic-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("docker"), "").unwrap();
+    std::fs::write(d.join("docker.exe"), "").unwrap();
+    let bin = std::env::var("REVISED_SDK_BIN")
+        .unwrap_or_else(|_| env!("CARGO_BIN_EXE_revised-sdk").into());
+    let o = Command::new(bin)
+        .args(["preview", "up"])
+        .env("PATH", &d)
+        .output()
+        .unwrap();
+    let _ = std::fs::remove_dir_all(&d);
+    let t = String::from_utf8_lossy(&o.stderr).to_string() + &String::from_utf8_lossy(&o.stdout);
+    assert_eq!(o.status.code(), Some(2), "{t}");
+    assert!(t.contains("`docker run --rm -v revised-sdk-opera:/opera:ro revised-sdk:"), "{t}");
+    assert!(!t.contains("<version>") && !t.contains("podman"), "{t}");
+}
+
+#[test]
+fn ctl_write_without_a_reader_returns_in_bounded_time() {
+    let Some(e) = it() else { return };
+    let p = project("fifo");
+    up(&e, &p, &UpOpts { opera: false }).unwrap();
+    // the daemon is the FIFO reader: kill it and the open blocks
+    let kill = "for p in /proc/[0-9]*; do grep -q '^revised-daemon' $p/comm && kill ${p#/proc/}; done; sleep 1";
+    let _ = Command::new(&e.bin).args(["exec", CONTAINER, "sh", "-c", kill]).output().unwrap();
+    let t0 = std::time::Instant::now();
+    let r = key(&e, "up");
+    let _ = down(&e);
+    assert!(t0.elapsed().as_secs() < 15, "{:?}", t0.elapsed());
+    assert!(r.unwrap_err().contains("no reply"), "ctl must time out");
+}
