@@ -209,7 +209,7 @@ In `baseline check`, `missing` and `mismatch` list paths. In `push`, `restart` i
 
 - `preview up` needs `--accept-opera-license`. Opera 12.10 is not part of this project and comes under its own license (EULA). By passing the flag you, the developer, accept that EULA on this machine. Without the flag the command exits 2 and prints how to read the license. An agent must not pass the flag on its own: ask the developer first.
 - Install Opera once with `opera install --image`.
-- Preview binds `127.0.0.1` only: sim daemon on port 2777, HTTP on 8750. Running `preview up` twice reuses the running preview.
+- Preview binds `127.0.0.1` only: sim daemon on port 2777, HTTP on 8750. Running `preview up` again replaces the running preview with a fresh one (there is only ever one preview container).
 - The preview HMI is a small stub, not the stock HMI. It proves your app's code and layout, not the stock screens around it.
 
 ### Push and the unit
