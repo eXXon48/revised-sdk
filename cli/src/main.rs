@@ -1,4 +1,4 @@
-use revised_sdk::{baseline, build, engine, lint, local, new, preview, report, setup};
+use revised_sdk::{baseline, build, engine, lint, local, new, preview, report, setup, unit};
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -31,6 +31,9 @@ fn run(args: Vec<String>) -> i32 {
     let project = dir.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
     if cmd == "preview" {
         return preview_command(&rest, json, eng.as_deref(), &project);
+    }
+    if cmd == "push" || cmd == "unit" {
+        return unit::command(&rest, json, &project);
     }
     if cmd == "baseline" {
         return match rest.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
