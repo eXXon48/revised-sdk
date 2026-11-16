@@ -225,7 +225,7 @@ pub fn setup(o: &SetupOpts) -> i32 {
             "--store <path to cmu-re-store checkout> is required (phase 1: the store repo is private)",
         );
     };
-    // ponytail: without --sdk, look for a checkout above the binary or the cwd; no build path is baked in
+    // note: without --sdk, look for a checkout above the binary or the cwd; no build path is baked in
     let sdk = o.sdk.map(Path::to_path_buf).or_else(find_sdk).unwrap_or_default();
     if !sdk.join("container/Containerfile").is_file() {
         let m = format!("no container/Containerfile found (looked in {:?}): pass --sdk <revised-sdk checkout>", sdk.display().to_string());

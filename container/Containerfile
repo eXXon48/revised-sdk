@@ -36,7 +36,7 @@ COPY --from=store local-sim/serve.js /store/serve.js
 # ---- final ----
 FROM toolchain
 # Opera 12.10 x86_64 runtime libs (Qt-free build; GStreamer 0.10 is not in bookworm and is optional).
-# ponytail: best-known set; verify with `ldd` on the Opera binary once `opera install --image` ran.
+# note: best-known set; verify with `ldd` on the Opera binary once `opera install --image` ran.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nodejs xvfb imagemagick \
         libx11-6 libxext6 libxrender1 libxt6 libsm6 libice6 libxcursor1 \

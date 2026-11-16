@@ -93,7 +93,7 @@ pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
         entries.push(json!({"live": format!("ui/{f}"), "payload": format!("payload/ui/{f}"),
             "mode": "0644", "owner": "1000:1000", "type": "new", "apply": "whole-file"}));
     }
-    // ponytail: author/category/minDaemon are fixed until mod.yaml grows those keys.
+    // note: author/category/minDaemon are fixed until mod.yaml grows those keys.
     let manifest = json!({"formatVersion": 1, "name": m.name, "version": m.version, "author": "unknown",
         "targetCMU": m.target_cmu, "category": "Apps", "description": app.title, "minDaemon": "0.1.0",
         "depends": "", "conflicts": "", "files": entries});
