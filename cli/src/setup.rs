@@ -205,6 +205,17 @@ pub fn build_args(tag: &str, sdk: &Path, store: &Path, rev: &str) -> Vec<String>
     ]
 }
 
+/// The revised-sdk checkout the binary runs from (`<checkout>/cli/target/<profile>/revised-sdk`) or the cwd is in.
+fn find_sdk() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let cwd = std::env::current_dir().ok()?;
+    [exe.parent()?.to_path_buf(), cwd]
+        .iter()
+        .flat_map(|d| d.ancestors())
+        .find(|a| a.join("container/Containerfile").is_file())
+        .map(Path::to_path_buf)
+}
+
 pub fn setup(o: &SetupOpts) -> i32 {
     const CMD: &str = "setup";
     let Some(store) = o.store else {
@@ -214,10 +225,10 @@ pub fn setup(o: &SetupOpts) -> i32 {
             "--store <path to cmu-re-store checkout> is required (phase 1: the store repo is private)",
         );
     };
-    // ponytail: default is the source checkout this binary was built from; a released binary needs --sdk
-    let sdk = o.sdk.map(Path::to_path_buf).unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
+    // ponytail: without --sdk, look for a checkout above the binary or the cwd; no build path is baked in
+    let sdk = o.sdk.map(Path::to_path_buf).or_else(find_sdk).unwrap_or_default();
     if !sdk.join("container/Containerfile").is_file() {
-        let m = format!("no container/Containerfile under {}: pass --sdk <revised-sdk checkout>", sdk.display());
+        let m = format!("no container/Containerfile found (looked in {:?}): pass --sdk <revised-sdk checkout>", sdk.display().to_string());
         return env_error_in(o.json, CMD, &m);
     }
     let rev = match Command::new("git").arg("-C").arg(store).args(["rev-parse", "HEAD"]).output() {
