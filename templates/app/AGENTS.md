@@ -90,7 +90,19 @@ RevisedHMI.on(name, fn)          // read-only listeners:
                                  //   "key"    {key, phase}     every key, cannot consume
                                  //   "ready"  {}               framework and registry loaded
 RevisedHMI.log(msg)              // writes to the HMI log with a [rvp-sdk <key>] tag
+var svc = RevisedHMI.service(name) // an on-demand service of your own package
+svc.start(); svc.stop();         // claim / release it
+svc.state()                      // "running" | "stopped" | "unknown"
+svc.on("state", fn)              // fn({state, error?}) on every change
 ```
+
+Services:
+
+- Declare the service in `sm.conf` and `sm_WCP.conf` with an xml-node insert of one `<service name="<name>" autorun="no">`. Both files get the identical set.
+- A claim lives on the HMI connection and survives your app closing. Call `stop` when done.
+- The service stops 10 s after the last claim is released or the HMI disconnects.
+- `error: "reboot pending"` is reported until the reboot after install.
+- `autorun="yes"` services are not controllable.
 
 `ctx`, the argument of `open`:
 
