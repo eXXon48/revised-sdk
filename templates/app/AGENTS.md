@@ -93,7 +93,7 @@ RevisedHMI.log(msg)              // writes to the HMI log with a [rvp-sdk <key>]
 var svc = RevisedHMI.service(name) // an on-demand service of your own package
 svc.start(); svc.stop();         // claim / release it
 svc.state()                      // "running" | "stopped" | "unknown"
-svc.on("state", fn)              // fn({state, error?}) on every change
+svc.on("state", fn)              // fn({state, error?}) on every daemon reply for it
 ```
 
 Services:
@@ -101,7 +101,10 @@ Services:
 - Declare the service in `sm.conf` and `sm_WCP.conf` with an xml-node insert of one `<service name="<name>" autorun="no">`. Both files get the identical set.
 - A claim lives on the HMI connection and survives your app closing. Call `stop` when done.
 - The service stops 10 s after the last claim is released or the HMI disconnects.
-- `error: "reboot pending"` is reported until the reboot after install.
+- `error: "reboot pending"` is reported until the reboot after install (also by `status`).
+- The `state` listener fires on every reply frame, not only on a change. When `error` is set, ignore `state`.
+- Service names are `[A-Za-z0-9_]+` and must be new: a name already in the stock SM files or in another package is refused at install.
+- An HMI reload or Opera restart drops every claim. If the service should keep running, call `start()` from your app's main when it loads.
 - `autorun="yes"` services are not controllable.
 
 `ctx`, the argument of `open`:
