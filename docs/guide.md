@@ -27,6 +27,7 @@ The HMI is the 2012 Opera (Presto) browser. `revised-sdk lint` enforces these ru
 - JavaScript is ES5 only. Do not use `let`, `const`, arrow functions, `class`, template strings, spread or rest `...`, `for...of`, `async` or `await`. Use `var`, function expressions, string concatenation and indexed `for` loops. There is no `Promise`.
 - CSS: no `display: flex`, `inline-flex`, `grid` or `inline-grid` (use `block`, `inline-block` or `float`), no `var(`, no `calc(`, no `clip-path`, no `-webkit-` and no `-o-` properties.
 - Files must be valid UTF-8.
+- Never reload or navigate the HMI page (`location.reload()`, `location.href = ...`). It reboots the whole unit about a minute later. To pick up changed code, use `push` or SafeReboot.
 
 ### Lint rule ids
 
@@ -34,7 +35,7 @@ Every finding has a `rule` id, a `level` (`error` or `warning`), and `file`, `li
 
 | Rule | Level | Meaning |
 |---|---|---|
-| `es5-syntax` | error | JavaScript that is not ES5. The message names the ES5 replacement. |
+| `es5-syntax` | error | JavaScript that is not ES5, or a `.reload(` call (reloading the HMI page reboots the unit). The message names the replacement. |
 | `css-presto` | error | CSS (or an inline `style=""`) that Presto does not support. |
 | `ws-literal-port` | warning | A hard-coded `ws://127.0.0.1:<port>` or `ws://localhost:<port>`. Take the endpoint from the HMI framework. |
 | `hmi-handwritten` | warning | `ui/hmi.json` exists. `build` generates it and overwrites your copy. |
@@ -106,7 +107,22 @@ RevisedHMI.on(name, fn)          // read-only listeners:
                                  //   "key"    {key, phase}     every key, cannot consume
                                  //   "ready"  {}               framework and registry loaded
 RevisedHMI.log(msg)              // writes to the HMI log with a [rvp-sdk <key>] tag
+var svc = RevisedHMI.service(name) // an on-demand service of your own package
+svc.start(); svc.stop();         // claim / release it
+svc.state()                      // "running" | "stopped" | "unknown"
+svc.on("state", fn)              // fn({state}) or fn({error}) on every daemon reply for it
 ```
+
+Services:
+
+- Declare the service in `sm.conf` and `sm_WCP.conf` with an xml-node insert of one `<service name="<name>" autorun="no">`. Both files get the identical set.
+- A claim lives on the HMI connection and survives your app closing. Call `stop` when done.
+- The service stops 10 s after the last claim is released or the HMI disconnects.
+- `error: "reboot pending"` is reported until the reboot after install (also by `status`).
+- The `state` listener fires on every reply frame, not only on a change. An error reply carries no `state`; `svc.state()` keeps the last known one.
+- Service names are `[A-Za-z0-9_]+` and must be new: a name already in the stock SM files or in another package is refused at install.
+- A reboot drops every claim. If the service should keep running, call `start()` from your app's main when it loads.
+- `autorun="yes"` services are not controllable.
 
 `ctx`, the argument of `open`:
 

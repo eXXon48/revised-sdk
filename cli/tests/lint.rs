@@ -183,3 +183,17 @@ fn cli_lint_exit_codes() {
     let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
     assert_eq!((v["command"].as_str(), v["errors"][0]["rule"].as_str()), (Some("lint"), Some("es5-syntax")));
 }
+
+/// A page reload in the HMI reboots the whole unit ~1 min later (bench 2026-11-16).
+#[test]
+fn page_reload_is_an_error() {
+    for (src, col) in [("location.reload();", 10), ("window.location.reload(true);", 17)] {
+        let (_, f) = js("reload", src);
+        let h = rules(&f, "es5-syntax");
+        assert_eq!(h.len(), 1, "{src}: {f:?}");
+        assert_eq!((h[0].line, h[0].col), (Some(2), Some(col)), "{src}");
+        assert!(h[0].msg.contains("reboots the unit"), "{:?}", h[0]);
+    }
+    let (_, f) = js("reload-neg", "var reload = 1; o.reloadAll(); var r = x.reload; // location.reload()");
+    assert!(f.is_empty(), "{f:?}");
+}

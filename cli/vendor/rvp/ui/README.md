@@ -58,7 +58,8 @@ Offline demo is driven by two local containers + the native build; see
 ## Deploy to the GU
 
 > **⚠️ These steps write to the unit.** Use a test unit. Loading the injector
-> needs an HMI reload. Prefer restarting only the HMI over a full reboot: if a
+> needs a SafeReboot. Never reload the HMI page: it reboots the whole unit about a
+> minute later anyway, and `smctl -r -n Opera` leaves a black screen. If a
 > tripwire is installed, every reboot counts toward its boot-loop counter.
 > SSH: `cmu@<unit-ip>`, port 36000, your unit key.
 
@@ -74,7 +75,7 @@ Offline demo is driven by two local containers + the native build; see
 4. **Watch**: `ssh ... 'tail -f /tmp/rvp-ws-logger.log'`
 5. **Open**: Apps → **Revised Store**. Rotate = move, press = select,
    back = close. Each control logs a line.
-6. **Revert** (RW): `ssh ... 'sh /tmp/rvp-spike/revert-on-unit.sh'` + HMI reload.
+6. **Revert** (RW): `ssh ... 'sh /tmp/rvp-spike/revert-on-unit.sh'` + SafeReboot.
 
 ## Open checks on a real unit
 

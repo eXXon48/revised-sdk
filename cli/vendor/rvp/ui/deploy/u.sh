@@ -15,6 +15,8 @@ LOG=/tmp/revised-daemon.log
 strip() { sed 's/^VPFS[0-9A-F]\{12,\}//'; }   # the unit's login banner
 case "$1" in
 js)
+  # a page reload in the HMI reboots the whole unit ~1 min later (bench 2026-11-16)
+  case "$2" in *.reload\(*) echo "refused: reloading the HMI page reboots the unit; use SafeReboot" >&2; exit 1 ;; esac
   # base64 so quotes/newlines survive ssh + FIFO; wait up to 6 s for the next "eval" log line
   code=$(printf '%s' "$2" | base64 -w0)
   ssh $K "n=\$(grep -c '\"eval\"' $LOG); echo 'js:eval(atob(\"$code\"))' > /tmp/rvp-ctl; i=0; while [ \$i -lt 30 ]; do [ \$(grep -c '\"eval\"' $LOG) -gt \$n ] && break; usleep 200000; i=\$((i+1)); done; grep '\"eval\"' $LOG | tail -1 | sed 's/.*\"action\"://'" 2>&1 | strip ;;

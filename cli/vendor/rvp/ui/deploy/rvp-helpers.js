@@ -1,5 +1,5 @@
 // DEV ONLY. Store-UI helpers for remote tests over the eval bridge.
-// Load into the HMI page: `sh u.sh helpers` (lost on HMI reload/reboot; load again).
+// Load into the HMI page: `sh u.sh helpers` (lost on reboot; load again).
 // ES5 only (Presto). click() dispatches mousedown/mouseup/click like a finger tap,
 // so the injector's drag tracking and the renderer's tap focus sync see a real tap.
 // Screen stack (T7/T8): drawer section -> list/home/account -> package page -> confirm / Pair / USB.

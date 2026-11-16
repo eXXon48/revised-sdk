@@ -105,6 +105,10 @@ pub fn scan(c: &[char]) -> Vec<(usize, &'static str)> {
                 "class" if !prop && nx != ':' => Some("`class` is not ES5: use a constructor function and prototype"),
                 "await" if !prop && nx != ':' => Some("`await` is not ES5: use callbacks"),
                 "async" if !prop && id_char(nx) => Some("`async` is not ES5: use callbacks"),
+                // ponytail: only `.reload(`; `location.href = ...` also navigates, add if it shows up
+                "reload" if prop && nx == '(' => {
+                    Some("`.reload()` of the HMI page reboots the unit ~1 min later: never reload; SafeReboot instead")
+                }
                 "of" if !prop && for_parens.last() == Some(&depth) => {
                     Some("`for (... of ...)` is not ES5: use an indexed `for` loop")
                 }

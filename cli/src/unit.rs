@@ -486,6 +486,10 @@ fn shot(u: &Unit, dest: &str) -> Result<String, String> {
 }
 
 fn eval(u: &Unit, js: &str, secs: u64) -> Result<(String, Value), String> {
+    // a page reload in the HMI reboots the whole unit ~1 min later (bench 2026-11-16)
+    if js.contains(".reload(") {
+        return Err("refused: reloading the HMI page reboots the unit; use SafeReboot".into());
+    }
     let t0 = Instant::now();
     let left = || secs.saturating_sub(t0.elapsed().as_secs()).max(1);
     let no_reply = || {
