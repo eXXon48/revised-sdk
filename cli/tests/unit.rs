@@ -396,3 +396,26 @@ fn pem(kind: &str, body: &str) -> String {
     let k = format!("{kind} PRIVATE{}", " KEY");
     format!("-----BEGIN {k}-----\n{body}\n-----END {k}-----\n")
 }
+
+#[test]
+fn unit_shot_rejects_option_and_remote_looking_dest() {
+    let e = env("shotbad");
+    for dest in ["-o.png", "host:x.png"] {
+        let mut a = vec!["unit".to_string(), "shot".into(), dest.into()];
+        a.extend(unit_flags(&e));
+        let (code, out, _) = e.run(&a.iter().map(String::as_str).collect::<Vec<_>>(), &[]);
+        assert_eq!(code, 2, "{dest}: {out}");
+        assert!(out.contains("must not start with"), "{out}");
+    }
+    assert_eq!(e.calls(), "");
+}
+
+#[test]
+fn unit_flag_with_leading_dash_is_rejected() {
+    let e = env("dashunit");
+    let k = e.key.to_str().unwrap().to_string();
+    let (code, out, _) = e.run(&["push", "--unit", "-oProxyCommand=x", "--key", &k], &[]);
+    assert_eq!(code, 2, "{out}");
+    assert!(out.contains("bad --unit value"), "{out}");
+    assert_eq!(e.calls(), "");
+}

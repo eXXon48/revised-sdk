@@ -63,3 +63,20 @@ fn bad_yaml_is_finding_with_location() {
     assert_eq!(f[0].rule, "mod-yaml");
     assert!(f[0].line.is_some());
 }
+
+#[test]
+fn bad_name_and_version_are_rejected() {
+    let bad = |n: &str, v: &str, rule: &str| {
+        let t = format!("name: {n}\nversion: \"{v}\"\ntargetCMU: \"74.00.324A\"\n");
+        let e = parse(&t).unwrap_err();
+        assert!(e.iter().any(|f| f.rule == rule), "{n} {v}: {e:?}");
+    };
+    for n in ["a.b", "a_b", "../x", "A", "-a", ""] {
+        bad(n, "1.0.0", "name");
+    }
+    for v in ["1/../../x", "1.0 beta", "1;rm", "1\\\"2", "$(x)", "..", "1..2", ".1", "-1", "", "1/2"] {
+        bad("ok", v, "version");
+    }
+    let t = "name: ok\nversion: 1.0.0-rc.1+b2\ntargetCMU: \"74.00.324A\"\n";
+    assert!(parse(t).is_ok());
+}

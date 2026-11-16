@@ -71,10 +71,10 @@ pub fn tunnel_args(host: &str, key: &Path, port: u16) -> Vec<String> {
 /// Local deadline for a normal ssh/scp call; `scp` of a package may take longer.
 const SSH_SECS: u64 = 60;
 const SCP_SECS: u64 = 300;
-const TIMED_OUT: &str = "timed out after";
+pub(crate) const TIMED_OUT: &str = "timed out after";
 
 /// Run `prog`; kill it when `secs` pass (a stuck remote command must not hang the CLI).
-fn run(prog: &str, args: &[String], secs: u64) -> Result<String, String> {
+pub(crate) fn run(prog: &str, args: &[String], secs: u64) -> Result<String, String> {
     let mut c = Command::new(prog)
         .args(args)
         .stdin(Stdio::null())
@@ -364,6 +364,11 @@ fn push(u: &Unit, project: &Path) -> Result<Value, Vec<Finding>> {
     let file = rvp
         .file_name()
         .map_or(String::new(), |f| f.to_string_lossy().into_owned());
+    // defence in depth (modyaml already limits name and version): scp's remote path stays unquoted
+    // because modern scp speaks SFTP and would take quotes literally
+    if !file.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'+' | b'-')) {
+        return Err(env(format!("refusing to push {file:?}: unexpected characters in the file name")));
+    }
     u.ssh(&format!("mkdir -p {PUSH_DIR}")).map_err(env)?;
     u.scp(
         &rvp.to_string_lossy(),
@@ -465,6 +470,10 @@ fn logs(u: &Unit, project: &Path, n: usize) -> Result<Vec<String>, String> {
 fn shot(u: &Unit, dest: &str) -> Result<String, String> {
     if Path::new(dest).extension().is_none_or(|x| x != "png") {
         return Err(format!("shot target must be a .png file, got {dest:?}"));
+    }
+    // scp reads `host:path` as a remote target and `-x` as an option
+    if dest.starts_with('-') || dest.contains(':') {
+        return Err(format!("{ENV}shot target must not start with `-` or contain `:`, got {dest:?}"));
     }
     u.ssh(&format!("/usr/bin/screenshot {REMOTE_SHOT}"))?;
     u.scp(&u.remote(REMOTE_SHOT), dest)?;

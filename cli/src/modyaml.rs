@@ -37,6 +37,21 @@ pub struct ModYaml {
     pub changes: Vec<Value>,
 }
 
+/// Project names are package names and HMI ids: `[a-z0-9][a-z0-9-]{0,31}`.
+pub fn valid_name(n: &str) -> bool {
+    (1..=32).contains(&n.len())
+        && n.as_bytes()[0] != b'-'
+        && n.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+/// Versions end up in file names, remote paths and JSON: a strict charset keeps all three safe.
+pub fn valid_version(v: &str) -> bool {
+    (1..=64).contains(&v.len())
+        && !v.starts_with(['.', '-'])
+        && !v.contains("..")
+        && v.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'+' | b'-'))
+}
+
 /// Parse and validate. Phase 1 refuses `native:` and non-empty `changes:`.
 pub fn parse(text: &str) -> Result<ModYaml, Vec<Finding>> {
     let m: ModYaml = serde_yaml::from_str(text).map_err(|e| {
@@ -47,6 +62,15 @@ pub fn parse(text: &str) -> Result<ModYaml, Vec<Finding>> {
         }]
     })?;
     let mut errs = Vec::new();
+    if !valid_name(&m.name) {
+        errs.push(Finding::error("name", &format!("invalid name {:?}: use [a-z0-9][a-z0-9-]*, at most 32 chars", m.name)));
+    }
+    if !valid_version(&m.version) {
+        errs.push(Finding::error(
+            "version",
+            &format!("invalid version {:?}: use [0-9A-Za-z.+-], at most 64 chars, not starting with `.` or `-`, no `..`", m.version),
+        ));
+    }
     if m.target_cmu != TARGET_CMU {
         errs.push(Finding::error(
             "target-cmu",

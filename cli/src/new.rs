@@ -1,4 +1,5 @@
 //! `revised-sdk new <template> <name>`: copy an embedded template into `<base>/<name>/`.
+use crate::modyaml::valid_name;
 use crate::report::Finding;
 use std::path::{Path, PathBuf};
 
@@ -21,13 +22,6 @@ fn template(name: &str) -> Option<Files> {
         "app" => Some(APP),
         _ => None,
     }
-}
-
-/// Project names are package names and HMI ids: `[a-z0-9][a-z0-9-]{0,31}`.
-fn valid_name(n: &str) -> bool {
-    (1..=32).contains(&n.len())
-        && n.as_bytes()[0] != b'-'
-        && n.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
 }
 
 fn fail(rule: &str, msg: String) -> Vec<Finding> {
