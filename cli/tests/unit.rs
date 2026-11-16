@@ -17,7 +17,7 @@ const FAKE_SSH: &str = r#"#!/bin/sh
 echo "ssh $*" >> "$FAKE_LOG"
 if [ -n "$FAKE_TUNNEL_FAIL" ]; then case "$*" in *" -L "*) echo "Permission denied (publickey)" >&2; exit 255;; esac; fi
 if [ -n "$FAKE_HANG" ]; then exec sleep 300; fi
-case "$*" in *" -L "*) exec sleep 30;; esac
+case "$*" in *" -L "*) echo "tunnel started" >&2; exec sleep 30;; esac
 if [ -n "$FAKE_DOWN" ]; then echo "ssh: connect to host h port 36000: Connection refused" >&2; exit 255; fi
 case "$*" in *rvp-ctl*) touch "$FAKE_DIR/sent";; esac
 case "$*" in *"grep -F"*) [ -f "$FAKE_DIR/sent" ] && cat "$FAKE_DIR/reply.txt";; esac
@@ -51,11 +51,7 @@ fn env(name: &str) -> Env {
         .unwrap();
     }
     let key = dir.join("k_ecdsa");
-    std::fs::write(
-        &key,
-        pem("EC", "Zml4dHVyZQ=="),
-    )
-    .unwrap();
+    std::fs::write(&key, pem("EC", "Zml4dHVyZQ==")).unwrap();
     let proj = new_project(&dir, "app", "t1").unwrap();
     Env { dir, proj, key }
 }
@@ -218,11 +214,7 @@ fn ed25519_key_hint() {
     blob.extend_from_slice(&[0, 0, 0, 11]);
     blob.extend_from_slice(b"ssh-ed25519");
     let osh = e.dir.join("k2");
-    std::fs::write(
-        &osh,
-        pem("OPENSSH", &b64(&blob)),
-    )
-    .unwrap();
+    std::fs::write(&osh, pem("OPENSSH", &b64(&blob))).unwrap();
     for k in [pub_style, osh] {
         let (code, out, _) = e.run(
             &[

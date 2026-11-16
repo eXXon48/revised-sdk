@@ -230,6 +230,14 @@ fn try_tunnel(u: &Unit, skip_wait: bool) -> Result<(Tunnel, u16), String> {
         format!("{ENV}{why}: {}", e.trim())
     };
     if skip_wait {
+        // test seam: no real forward to probe. Wait for the (fake) ssh to say it started, else the
+        // child can be killed on drop before it ran at all.
+        let t0 = Instant::now();
+        while t0.elapsed() < Duration::from_secs(10)
+            && std::fs::metadata(&log).map_or(true, |m| m.len() == 0)
+        {
+            std::thread::sleep(Duration::from_millis(20));
+        }
         let _ = std::fs::remove_file(&log);
         return Ok((t, port));
     }
