@@ -8,6 +8,8 @@ type Files = &'static [(&'static str, &'static [u8])];
 const APP: Files = &[
     ("mod.yaml", include_bytes!("../../templates/app/mod.yaml")),
     ("README.md", include_bytes!("../../templates/app/README.md")),
+    ("AGENTS.md", include_bytes!("../../templates/app/AGENTS.md")),
+    ("CLAUDE.md", include_bytes!("../../templates/app/CLAUDE.md")),
     (".gitignore", include_bytes!("../../templates/app/.gitignore")),
     ("ui/main.js", include_bytes!("../../templates/app/ui/main.js")),
     ("ui/style.css", include_bytes!("../../templates/app/ui/style.css")),
