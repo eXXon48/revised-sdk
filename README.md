@@ -7,7 +7,7 @@ SDK for CMU-Revised package authors. Planned pieces: the `revised-sdk` CLI, a bu
 Build the CLI with `cargo build --release` in `cli/` (Rust 1.99.1; crates are vendored), put `revised-sdk` on your `PATH`, then:
 
 ```sh
-revised-sdk setup                                  # once: builds the SDK image (needs podman or docker)
+revised-sdk setup --store <cmu-re-store checkout>  # once: builds the SDK image (needs podman or docker; --sdk, --dry-run)
 revised-sdk new app mydash && cd mydash
 revised-sdk lint && revised-sdk build              # dist/mydash-0.1.0.rvp
 revised-sdk preview up --accept-opera-license      # accepts the Opera 12.10 EULA; see docs/guide.md

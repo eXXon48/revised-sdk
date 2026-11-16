@@ -6,7 +6,7 @@ This guide and the `AGENTS.md` file in every new project come from the same sour
 
 ## Quick start
 
-1. Install podman or docker, then run `revised-sdk setup` once. It builds the SDK image.
+1. Install podman or docker, then run `revised-sdk setup --store <path to your cmu-re-store checkout>` once. It builds the SDK image. Add `--sdk <path to this repo>` if the binary does not run from inside a revised-sdk checkout, and `--dry-run` to print the build command only.
 2. Install Opera 12.10 for the preview: `revised-sdk opera install --image`. Opera is not part of this project and comes under its own license.
 3. Make a project: `revised-sdk new app mydash`, then `cd mydash`.
 4. Edit `ui/main.js` and `ui/style.css`. Run `revised-sdk lint` until it is clean.
@@ -22,7 +22,7 @@ The sections below are the shared reference.
 
 ### Presto and ES5
 
-The HMI is the 2012 Opera (Presto) browser. `revised-sdk lint` enforces these rules on every `ui/**/*.js`, `ui/**/*.css` and `ui/**/*.html` file. `build` runs lint first and stops on errors.
+The HMI is the 2012 Opera (Presto) browser. `revised-sdk lint` enforces these rules on every `ui/**/*.js`, `ui/**/*.css` and `ui/**/*.html` file. `build` runs lint first and stops on errors. `build` does not print lint warnings (only errors): run `lint` to see them. Lint reads `style=""` attributes in HTML, but does not look inside `<style>` or `<script>` blocks: keep CSS and JavaScript in their own `.css` and `.js` files.
 
 - JavaScript is ES5 only. Do not use `let`, `const`, arrow functions, `class`, template strings, spread or rest `...`, `for...of`, `async` or `await`. Use `var`, function expressions, string concatenation and indexed `for` loops. There is no `Promise`.
 - CSS: no `display: flex`, `inline-flex`, `grid` or `inline-grid` (use `block`, `inline-block` or `float`), no `var(`, no `calc(`, no `clip-path`, no `-webkit-` and no `-o-` properties.
@@ -42,23 +42,47 @@ Every finding has a `rule` id, a `level` (`error` or `warning`), and `file`, `li
 | `encoding` | error | A file is not valid UTF-8. It is skipped. The finding points at the first bad byte. |
 | `io` | error | A file cannot be read. |
 | `mod-yaml` | error | `mod.yaml` is missing or does not parse. |
+| `name` | error | `name` (or the `new` argument) is not `[a-z0-9][a-z0-9-]*`, at most 32 characters. |
+| `version` | error | `version` uses characters outside `[0-9A-Za-z.+-]`, is longer than 64, starts with `.` or `-`, or contains `..`. |
 | `target-cmu` | error | `targetCMU` is not `74.00.324A`, the only supported firmware. |
 | `changes-phase2` | error | `changes:` is not empty. System-mod edits are not supported yet. |
 | `native-phase2` | error | `native:` is set. Native backends are not supported yet. |
 
-`build` can also report `no-app`, `entry-missing` and `hmi-id` (the HMI id is `name`, at most 32 characters).
+Other commands report these ids:
+
+| Rule | Level | Command | Meaning |
+|---|---|---|---|
+| `no-app` | error | `build` | `mod.yaml` has no `app:` block. |
+| `rows` | error | `build` | `app.rows` is empty. |
+| `entry` | error | `build` | `app.entry` is not a path under `ui/`. |
+| `entry-missing` | error | `build` | `app.entry` does not exist. |
+| `hmi-id` | error | `build` | An HMI id is longer than 32 characters: shorten `name`. |
+| `pack` | error | `build` | The package or its manifest is invalid. The message names the cause. |
+| `template` | error | `new` | Unknown template. |
+| `exists` | error | `new` | The target directory exists and is not empty. |
+| `baseline-missing` | error | `baseline check` | A listed stock file is missing from the directory. |
+| `baseline-mismatch` | error | `baseline check` | A stock file's md5 differs from the published list. |
+| `ntfs` | warning | `baseline check` | The directory is on a Windows drive; extract onto a POSIX file system. |
+| `local-toml` | warning | `baseline check` | The baseline path could not be saved to `.revised/local.toml`. |
+| `opera-sha256` | error | `opera install` | The download does not match the pinned sha256. It is deleted. |
+| `devmode-off` | error | `push` | The unit is not in Developer mode. Nothing was installed. |
+| `install-failed` | error | `push` | The daemon refused the package. The message has its reason. |
+| `env` | error | any | Environment problem (no engine, unit unreachable, bad key). Exit code 2. |
+| `io` | error | `new`, `build` | A file cannot be read or written. |
+
+When a `preview` or `unit` action itself fails (exit 1), the rule id is the sub-command: `up`, `down`, `url`, `eval`, `shot`, `logs`, `key`.
 
 ### Jail rules
 
 - A package owns only its own jail directory. Every file in the package lives under `ui/`; `build` generates `ui/hmi.json` and the manifest.
-- Package names and HMI ids match `[a-z0-9][a-z0-9-]*`, at most 32 characters.
-- The project must not claim any path in the store's own namespace. Stock files are never part of a package.
+- Package names and HMI ids match `[a-z0-9][a-z0-9-]*`, at most 32 characters. Lint enforces this (`name`).
+- The jail and stock-path rules below are enforced by the daemon when it installs the package, not by lint. The project must not claim any path in the store's own namespace. Stock files are never part of a package.
 - Only `targetCMU: "74.00.324A"` is supported.
 - `mod.yaml` is the single source of truth. Do not hand-write `ui/hmi.json` or a manifest.
 
 ### Agent rules
 
-- Search stock files only in the mounted read-only baseline (`/rootfs` in the SDK container). Never run `grep -r`, `find` or any recursive search on the unit.
+- Search stock files only in the read-only baseline directory (the one `baseline check` recorded; mount it read-only if you search it from a container). Never run `grep -r`, `find` or any recursive search on the unit.
 - Never remount the baseline read-write.
 - Never copy stock files into the package or the repository.
 - Run `push` only on a unit that is in Developer mode. `push` is refused otherwise.
@@ -144,7 +168,7 @@ Work in this loop: `new`, `lint`, `build`, `preview up`, `eval` and `shot`, then
 
 | Command | Does |
 |---|---|
-| `setup` | Checks podman or docker and builds the SDK image. Run once. |
+| `setup --store <cmu-re-store checkout> [--sdk <revised-sdk checkout>] [--dry-run]` | Builds the SDK image with podman or docker. Run once. `--store` is required (phase 1: the store repo is private). `--sdk` is needed only when the binary does not run from inside a revised-sdk checkout. `--dry-run` prints the engine arguments and builds nothing. |
 | `opera install --image` | Downloads Opera 12.10 into the `revised-sdk-opera` volume and checks its sha256. |
 | `new <template> <name>` | Creates `<name>/` from a template (`app`). Also writes `AGENTS.md` and `CLAUDE.md`. |
 | `lint` | Checks the project (see Rules). |
@@ -159,7 +183,7 @@ Work in this loop: `new`, `lint`, `build`, `preview up`, `eval` and `shot`, then
 | `preview logs [n]` | Last `n` lines of the preview log (default 30). |
 | `push [--unit cmu@<ip>] [--key <file>]` | Builds, copies the `.rvp` to the unit, installs it as unsigned. |
 | `unit logs [n]` | Last `n` log lines that mention your package or an `[rvp-sdk` tag. |
-| `unit shot <file.png>` | Screenshot of the unit's screen. |
+| `unit shot <file.png>` | Screenshot of the unit's screen. The path must not start with `-` or contain `:`. |
 | `unit eval '<js>'` | Runs JavaScript in the unit's HMI, through the dev eval bridge. |
 
 ### Examples with `--json`
@@ -215,7 +239,7 @@ In `baseline check`, `missing` and `mismatch` list paths. In `push`, `restart` i
 ### Push and the unit
 
 - `push` and `unit` use ssh port 36000, user `cmu`, with a key file. The key must be ECDSA or RSA: the unit's OpenSSH 5.9 has no ed25519, and the CLI refuses an ed25519 key before it connects. Make one with `ssh-keygen -t ecdsa -b 256 -f <keyfile>`.
-- `--unit` and `--key` are saved to `.revised/local.toml` (git-ignored) so you pass them once.
+- Only `push` saves `--unit` and `--key` to `.revised/local.toml` (git-ignored), so you pass them once. `unit logs|shot|eval` read the saved values but do not save new ones.
 - The unit must be in Developer mode with SSH enabled (key `.pub` on the USB stick). Otherwise `push` exits 1 with rule `devmode-off` and installs nothing.
 - Host key: ssh runs with `StrictHostKeyChecking=accept-new`. The first connection trusts the unit's host key and stores it in your `known_hosts` (trust on first use). Later connections must match. If the unit was reflashed or replaced and ssh reports a changed host key, check that it is your unit, then remove the old entry with `ssh-keygen -R "[<ip>]:36000"` and connect again.
 - Every `push` is an unsigned install and is logged by the unit as `unsigned-install`.

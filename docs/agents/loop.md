@@ -14,7 +14,7 @@ Work in this loop: `new`, `lint`, `build`, `preview up`, `eval` and `shot`, then
 
 | Command | Does |
 |---|---|
-| `setup` | Checks podman or docker and builds the SDK image. Run once. |
+| `setup --store <cmu-re-store checkout> [--sdk <revised-sdk checkout>] [--dry-run]` | Builds the SDK image with podman or docker. Run once. `--store` is required (phase 1: the store repo is private). `--sdk` is needed only when the binary does not run from inside a revised-sdk checkout. `--dry-run` prints the engine arguments and builds nothing. |
 | `opera install --image` | Downloads Opera 12.10 into the `revised-sdk-opera` volume and checks its sha256. |
 | `new <template> <name>` | Creates `<name>/` from a template (`app`). Also writes `AGENTS.md` and `CLAUDE.md`. |
 | `lint` | Checks the project (see Rules). |
@@ -29,7 +29,7 @@ Work in this loop: `new`, `lint`, `build`, `preview up`, `eval` and `shot`, then
 | `preview logs [n]` | Last `n` lines of the preview log (default 30). |
 | `push [--unit cmu@<ip>] [--key <file>]` | Builds, copies the `.rvp` to the unit, installs it as unsigned. |
 | `unit logs [n]` | Last `n` log lines that mention your package or an `[rvp-sdk` tag. |
-| `unit shot <file.png>` | Screenshot of the unit's screen. |
+| `unit shot <file.png>` | Screenshot of the unit's screen. The path must not start with `-` or contain `:`. |
 | `unit eval '<js>'` | Runs JavaScript in the unit's HMI, through the dev eval bridge. |
 
 ### Examples with `--json`
@@ -85,7 +85,7 @@ In `baseline check`, `missing` and `mismatch` list paths. In `push`, `restart` i
 ### Push and the unit
 
 - `push` and `unit` use ssh port 36000, user `cmu`, with a key file. The key must be ECDSA or RSA: the unit's OpenSSH 5.9 has no ed25519, and the CLI refuses an ed25519 key before it connects. Make one with `ssh-keygen -t ecdsa -b 256 -f <keyfile>`.
-- `--unit` and `--key` are saved to `.revised/local.toml` (git-ignored) so you pass them once.
+- Only `push` saves `--unit` and `--key` to `.revised/local.toml` (git-ignored), so you pass them once. `unit logs|shot|eval` read the saved values but do not save new ones.
 - The unit must be in Developer mode with SSH enabled (key `.pub` on the USB stick). Otherwise `push` exits 1 with rule `devmode-off` and installs nothing.
 - Host key: ssh runs with `StrictHostKeyChecking=accept-new`. The first connection trusts the unit's host key and stores it in your `known_hosts` (trust on first use). Later connections must match. If the unit was reflashed or replaced and ssh reports a changed host key, check that it is your unit, then remove the old entry with `ssh-keygen -R "[<ip>]:36000"` and connect again.
 - Every `push` is an unsigned install and is logged by the unit as `unsigned-install`.

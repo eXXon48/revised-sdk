@@ -57,14 +57,24 @@ fn agents_md_has_sections() {
     assert_eq!(read("templates/app/CLAUDE.md").trim(), "Read AGENTS.md.");
 }
 
-/// Every rule id that `cli/src/lint` emits is documented in `docs/agents/rules.md`.
+/// Every rule id the CLI emits (`cli/src`, lint included) is documented in `docs/agents/rules.md`.
 #[test]
-fn lint_rules_documented() {
+fn emitted_rules_documented() {
     let rules = read("docs/agents/rules.md");
     let mut ids = Vec::new();
-    for e in std::fs::read_dir(root().join("cli/src/lint")).unwrap() {
-        let src = std::fs::read_to_string(e.unwrap().path()).unwrap();
-        for pat in ["Finding::error(", "Finding::warning(", "Finding {"] {
+    let mut files = Vec::new();
+    for d in ["cli/src", "cli/src/lint"] {
+        for e in std::fs::read_dir(root().join(d)).unwrap() {
+            let p = e.unwrap().path();
+            if p.extension().is_some_and(|x| x == "rs") {
+                files.push(p);
+            }
+        }
+    }
+    for f in files {
+        let src = std::fs::read_to_string(f).unwrap();
+        // the constructors, plus build's `err(` and new's `fail(` helpers
+        for pat in ["Finding::error(", "Finding::warning(", "Finding {", "err(", "fail("] {
             for (i, _) in src.match_indices(pat) {
                 let rest = src[i + pat.len()..].trim_start();
                 if let Some(r) = rest.strip_prefix('"') {
@@ -72,30 +82,20 @@ fn lint_rules_documented() {
                 }
             }
         }
-        // pkg.rs builds its finding with the id on the following line
-        if let Some(i) = src.find("\"register-key\"") {
-            ids.push(src[i + 1..i + 13].to_string());
+        // ids that sit in tuples or on a line of their own
+        for id in ["register-key", "baseline-missing", "baseline-mismatch"] {
+            if src.contains(&format!("\"{id}\"")) {
+                ids.push(id.to_string());
+            }
         }
     }
     ids.sort();
     ids.dedup();
-    assert!(ids.len() >= 6, "id scan found too little: {ids:?}");
+    assert!(ids.len() >= 20, "id scan found too little: {ids:?}");
     for id in ids {
         assert!(
             rules.contains(&format!("`{id}`")),
             "rule {id} is not documented in docs/agents/rules.md"
-        );
-    }
-    for id in [
-        "target-cmu",
-        "changes-phase2",
-        "native-phase2",
-        "encoding",
-        "io",
-    ] {
-        assert!(
-            rules.contains(&format!("`{id}`")),
-            "rule {id} is not documented"
         );
     }
 }
@@ -119,7 +119,7 @@ fn no_password_literal() {
             }
             assert!(!all.contains(&pw), "a doc contains the CMU_UP_PASS value");
             assert!(
-                !all.contains(&pw[..8]),
+                !pw.get(..8).is_some_and(|p| all.contains(p)),
                 "a doc contains a prefix of the CMU_UP_PASS value"
             );
         }

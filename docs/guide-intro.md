@@ -6,7 +6,7 @@ This guide and the `AGENTS.md` file in every new project come from the same sour
 
 ## Quick start
 
-1. Install podman or docker, then run `revised-sdk setup` once. It builds the SDK image.
+1. Install podman or docker, then run `revised-sdk setup --store <path to your cmu-re-store checkout>` once. It builds the SDK image. Add `--sdk <path to this repo>` if the binary does not run from inside a revised-sdk checkout, and `--dry-run` to print the build command only.
 2. Install Opera 12.10 for the preview: `revised-sdk opera install --image`. Opera is not part of this project and comes under its own license.
 3. Make a project: `revised-sdk new app mydash`, then `cd mydash`.
 4. Edit `ui/main.js` and `ui/style.css`. Run `revised-sdk lint` until it is clean.
