@@ -20,7 +20,7 @@ if [ -n "$FAKE_HANG" ]; then exec sleep 300; fi
 case "$*" in *" -L "*) echo "tunnel started" >&2; exec sleep 30;; esac
 if [ -n "$FAKE_DOWN" ]; then echo "ssh: connect to host h port 36000: Connection refused" >&2; exit 255; fi
 case "$*" in *rvp-ctl*) touch "$FAKE_DIR/sent";; esac
-case "$*" in *"grep -F"*) [ -f "$FAKE_DIR/sent" ] && cat "$FAKE_DIR/reply.txt";; esac
+case "$*" in *"grep -hF"*) [ -f "$FAKE_DIR/sent" ] && cat "$FAKE_DIR/reply.txt";; esac
 case "$*" in *"tail -n"*) cat "$FAKE_DIR/log.txt";; esac
 exit 0
 "#;
@@ -269,7 +269,7 @@ fn unit_flags(e: &Env) -> Vec<String> {
 }
 
 #[test]
-fn unit_eval_reads_the_reply_from_the_unit_log() {
+fn unit_eval_reads_the_reply_from_the_daemon_log() {
     let e = env("eval");
     std::fs::write(
         e.dir.join("reply.txt"),
@@ -282,6 +282,7 @@ fn unit_eval_reads_the_reply_from_the_unit_log() {
     assert_eq!(code, 0, "{out}");
     assert_eq!(report(&out)["data"]["result"], "42");
     assert!(e.calls().contains("/tmp/rvp-ctl"), "{}", e.calls());
+    assert!(e.calls().contains("/tmp/revised-daemon.log"), "{}", e.calls());
 }
 
 #[test]

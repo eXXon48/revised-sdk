@@ -14,6 +14,7 @@ use tungstenite::{stream::MaybeTlsStream, Message};
 pub const PORT: &str = "36000";
 const PUSH_DIR: &str = "/tmp/revised-push";
 const UNIT_LOG: &str = "/var/log/running_log/log";
+const DAEMON_LOG: &str = "/tmp/revised-daemon.log";
 const REMOTE_SHOT: &str = "/tmp/revised-shot.png";
 const EVAL_SECS: u64 = 6;
 /// Prefix of an error string that is an environment problem (exit 2), not a failed check (exit 1).
@@ -475,7 +476,11 @@ fn shot(u: &Unit, dest: &str) -> Result<String, String> {
     if dest.starts_with('-') || dest.contains(':') {
         return Err(format!("{ENV}shot target must not start with `-` or contain `:`, got {dest:?}"));
     }
-    u.ssh(&format!("/usr/bin/screenshot {REMOTE_SHOT}"))?;
+    // the tool needs the HMI's Wayland env and always writes ./wayland-screenshot.png
+    u.ssh(&format!(
+        "cd /tmp && rm -f wayland-screenshot.png && XDG_RUNTIME_DIR=/tmp WAYLAND_DISPLAY=wayland-0 \
+         /usr/bin/screenshot >/dev/null 2>&1; mv -f /tmp/wayland-screenshot.png {REMOTE_SHOT}"
+    ))?;
     u.scp(&u.remote(REMOTE_SHOT), dest)?;
     Ok(dest.to_string())
 }
@@ -491,7 +496,8 @@ fn eval(u: &Unit, js: &str, secs: u64) -> Result<(String, Value), String> {
         u.ssh_for(cmd, left())
             .map_err(|e| if e.contains(TIMED_OUT) { no_reply() } else { e })
     };
-    let grep = format!("grep -F '\"control\":\"eval\"' {UNIT_LOG} || true");
+    // the daemon logs eval replies to its own log; the unit log is kept as a second source
+    let grep = format!("grep -hF '\"control\":\"eval\"' {DAEMON_LOG} {UNIT_LOG} 2>/dev/null || true");
     // grep exits 1 while there is no match: `|| true` keeps "0 replies" from reading as a failure
     let before = count_replies(&ssh(&grep)?);
     // the FIFO open blocks without a reader: BusyBox `timeout -t` ends it (GNU `timeout 3` would not parse)
