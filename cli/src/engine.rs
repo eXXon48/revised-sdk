@@ -1,4 +1,4 @@
-//! Container engine detection and re-exec inside the SDK image.
+//! Container engine detection and image checks.
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -17,6 +17,8 @@ pub struct Engine {
 
 fn find_in(name: &str, path: &OsStr) -> Option<PathBuf> {
     std::env::split_paths(path)
+        // an empty or relative entry means the cwd: a cloned project could plant `./podman`
+        .filter(|d| d.is_absolute())
         .flat_map(|d| [d.join(name), d.join(format!("{name}.exe"))])
         .find(|p| p.is_file())
 }
@@ -76,26 +78,4 @@ pub fn abs_host_path(p: &Path) -> Result<String, String> {
     std::path::absolute(p)
         .map(|a| host_path(&a))
         .map_err(|e| format!("cannot resolve path {}: {e}", p.display()))
-}
-
-/// Re-run `revised-sdk <args>` inside the image; returns its exit code.
-/// `Err` = environment failure (caller reports it, exit 2).
-pub fn run_in_image(
-    e: &Engine,
-    project: &Path,
-    baseline: Option<&Path>,
-    args: &[String],
-) -> Result<i32, String> {
-    let tag = image_tag();
-    ensure_image(e, &tag)?;
-    let mut c = Command::new(&e.bin);
-    c.args(["run", "--rm", "-v"])
-        .arg(format!("{}:/work", abs_host_path(project)?))
-        .args(["-w", "/work", "-v", "revised-sdk-cache:/cache", "-e", "REVISED_SDK_IN_CONTAINER=1"]);
-    if let Some(b) = baseline {
-        c.arg("-v").arg(format!("{}:/rootfs:ro", abs_host_path(b)?));
-    }
-    c.arg(&tag).arg("revised-sdk").args(args);
-    let s = c.status().map_err(|err| format!("cannot run {}: {err}", e.bin.display()))?;
-    Ok(s.code().unwrap_or(2))
 }

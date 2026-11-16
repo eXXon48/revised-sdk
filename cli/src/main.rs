@@ -1,4 +1,4 @@
-use revised_sdk::{baseline, build, engine, lint, local, new, preview, report, setup, unit};
+use revised_sdk::{baseline, build, engine, lint, new, preview, report, setup, unit};
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -44,31 +44,11 @@ fn run(args: Vec<String>) -> i32 {
     if cmd == "new" || cmd == "build" || cmd == "lint" {
         return project_command(&rest, json, &project);
     }
-    if std::env::var_os("REVISED_SDK_IN_CONTAINER").is_none() {
-        // container-side commands re-exec in the image
-        return match engine::detect(eng.as_deref()).and_then(|e| {
-            engine::run_in_image(&e, &project, local::load(&project).baseline.as_deref(), &without_host_flags(&args))
-        }) {
-            Ok(code) => code,
-            Err(m) => report::env_error_in(json, &cmd, &m),
-        };
-    }
-    report::env_error_in(json, &cmd, "not implemented")
-}
-
-/// `-C`/`--engine` are host concerns (the project is mounted at /work); forward the rest.
-fn without_host_flags(args: &[String]) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut it = args.iter();
-    while let Some(a) = it.next() {
-        match a.as_str() {
-            "--engine" | "-C" => {
-                it.next();
-            }
-            _ => out.push(a.clone()),
-        }
-    }
-    out
+    report::env_error_in(
+        json,
+        &cmd,
+        &format!("unknown command {cmd:?} (setup, opera, new, build, lint, baseline, preview, push, unit)"),
+    )
 }
 
 /// Commands that run on the host (they manage the image itself).
@@ -123,9 +103,18 @@ fn project_command(rest: &[String], json: bool, project: &std::path::Path) -> i3
     }
 }
 
-const OPERA_LICENSE_HELP: &str = "Opera 12.10 comes under its own license. Read it with \
-`podman run --rm -v revised-sdk-opera:/opera:ro revised-sdk:<version> sh -c 'cat /opera/*/LICENSE'`, \
-then add --accept-opera-license to accept it on this machine";
+/// How to read the Opera license (`/opera/*/LICENSE` = the `LICENSE` file in the unpacked Opera dir of the volume).
+fn opera_license_help(detected: Option<&engine::Engine>) -> String {
+    let name = match detected.map(|e| e.kind) {
+        Some(engine::Kind::Docker) => "docker",
+        _ => "podman",
+    };
+    format!(
+        "Opera 12.10 comes under its own license. Read it with `{name} run --rm -v {}:/opera:ro {} sh -c 'cat /opera/*/LICENSE'`, then add --accept-opera-license to accept it on this machine",
+        revised_sdk::setup::OPERA_VOLUME,
+        engine::image_tag()
+    )
+}
 
 /// `preview up|down|url|eval|shot|logs|key`: drives the preview container from the host.
 fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std::path::Path) -> i32 {
@@ -138,7 +127,7 @@ fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std
         return report::env_error_in(json, "preview", USAGE);
     }
     if sub == "up" && !accept {
-        return report::env_error_in(json, &cmd, OPERA_LICENSE_HELP);
+        return report::env_error_in(json, &cmd, &opera_license_help(engine::detect(eng).ok().as_ref()));
     }
     let e = match engine::detect(eng) {
         Ok(e) => e,

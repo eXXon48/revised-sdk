@@ -102,3 +102,14 @@ fn new_leading_digit_name_gives_valid_css() {
     }
     assert!(css.contains(".app-1app-title") && js.contains("\"app-1app-title\""), "{css}\n{js}");
 }
+
+#[test]
+fn unknown_command_exits_2_without_an_engine() {
+    let o = std::process::Command::new(env!("CARGO_BIN_EXE_revised-sdk"))
+        .args(["--json", "lnit"])
+        .env("PATH", "")
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&o.stdout).contains("unknown command"));
+}
