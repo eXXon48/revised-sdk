@@ -10,6 +10,8 @@
   "use strict";
 
   var REGISTRY_SRC = "/data_persist/cmu-re/pkg/.state/registry.js";
+  // contract-1 location; read only until the daemon has migrated it into pkg/.state
+  var REGISTRY_SRC_V1 = "/data_persist/cmu-re/ui/registry.js";
   var FALLBACK = { pkg: "cmu-re-store", id: "store", section: "applications", label: "Revised Store",
     base: "/data_persist/cmu-re/pkg/cmu-re-store/ui/", main: "controls.js", listen: false };
   var TAG = "[rvp-sdk]";
@@ -389,7 +391,9 @@
   function fire1(fn) { try { fn({}); } catch (e) { logMsg("ready listener threw: " + e); } }
 
   // ---- bootstrap -----------------------------------------------------------
-  loadScript(REGISTRY_SRC, consumeRegistry, function () { logMsg("registry.js not loaded, store row only"); consumeRegistry(); });
+  loadScript(REGISTRY_SRC, consumeRegistry, function () {
+    loadScript(REGISTRY_SRC_V1, consumeRegistry, function () { logMsg("registry.js not loaded, store row only"); consumeRegistry(); });
+  });
   waitFor(function () { return window.framework && window.framework.sendEventToMmui ? window.framework : null; },
     function (fw) { patchSendEvent(fw); patchContextChange(fw); patchKeys(); fwDone = true; maybeReady(); });
   // the system app owns the Applications / Entertainment menus (framework.getAppInstance, see injector)
