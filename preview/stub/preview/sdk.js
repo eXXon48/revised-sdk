@@ -9,7 +9,7 @@
 (function () {
   "use strict";
 
-  var REGISTRY_SRC = "/data_persist/cmu-re/ui/registry.js";
+  var REGISTRY_SRC = "/data_persist/cmu-re/pkg/.state/registry.js";
   var FALLBACK = { pkg: "cmu-re-store", id: "store", section: "applications", label: "Revised Store",
     base: "/data_persist/cmu-re/pkg/cmu-re-store/ui/", main: "controls.js", listen: false };
   var TAG = "[rvp-sdk]";

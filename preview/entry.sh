@@ -19,7 +19,6 @@ cp $P/stub/pubkey.minisign $SIM/cmu-re/store/pubkey.minisign
 ln -sfn $P/stub/jci /web/jci
 ln -sfn $P/stub/preview /web/preview
 ln -sfn /data /web/data
-ln -sfn $SIM/cmu-re/ui /web/data_persist/ui
 ln -sfn $SIM /web/sim
 ln -sfn $SIM/cmu-re /web/data_persist/cmu-re
 cp $P/stub/data/integration/developer_mode_GuiConfig.js /data/integration/
