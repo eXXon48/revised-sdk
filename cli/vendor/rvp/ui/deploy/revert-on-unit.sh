@@ -2,7 +2,8 @@
 # Revised Store dev REVERT on the CMU150.  *** RUN ON THE UNIT ***
 # Undoes run-on-unit.sh: stops the daemon, then the daemon's own offline
 # --uninstall-pkg cmu-re-store removes the injector, its 'A f' index row, the jail
-# and the registry entry. Refuses while other packages are installed.
+# and the registry entry; then cmu-re-sys-trust and cmu-re-sys-time (SM configs back to
+# stock). Refuses while other packages are installed.
 # Run from the scp'd bundle (needs revised-daemon-arm next to it).
 # /data_persist/cmu-re/store state and vanilla are LEFT in place (tripwire contract).
 # No rootfs edit, no reboot.
@@ -18,11 +19,21 @@ if [ -n "$(pidof revised-daemon)" ]; then
   exit 1
 fi
 
-echo ">> uninstall cmu-re-store"
-if ! "$HERE/revised-daemon-arm" --uninstall-pkg cmu-re-store; then
-  echo "uninstall refused: other packages installed? uninstall them from the UI first, then re-run."
-  exit 1
-fi
+# the store (0.6.0+) depends on the platform packages and goes first; an older store without
+# depends is refused until they are gone: retry the refused ones until a pass makes no progress
+left="cmu-re-store cmu-re-sys-trust cmu-re-sys-time"
+while [ -n "$left" ]; do
+  next=
+  for p in $left; do
+    echo ">> uninstall $p"
+    "$HERE/revised-daemon-arm" --uninstall-pkg "$p" || next="$next $p"
+  done
+  if [ "$(echo $next)" = "$left" ]; then
+    echo "uninstall refused for:$next (other packages installed? uninstall them from the UI first, then re-run)."
+    exit 1
+  fi
+  left=$(echo $next)
+done
 
 rm -f /tmp/rvp-ctl /tmp/revised-daemon.log
 

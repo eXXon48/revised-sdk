@@ -1,0 +1,111 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+env:
+  # mirror of Containerfile / rvp-build image
+  ZIG_VERSION: 0.14.1
+  CARGO_ZIGBUILD_VERSION: 0.24.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Install toolchain (rust-toolchain.toml), cargo-zigbuild, minisign
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          cargo install cargo-zigbuild --version "$CARGO_ZIGBUILD_VERSION" --locked
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends minisign
+
+      - name: Test
+        # SM tests write the fixed paths /jci/sm/sm.conf + sm_WCP.conf (root in the rvp-build container)
+        run: |
+          sudo mkdir -p /jci/sm
+          sudo chown "$(id -u):$(id -g)" /jci/sm
+          cargo test --workspace
+
+      - name: Cross-build ARM daemon (throwaway dev root)
+        run: |
+          d="$(mktemp -d)"
+          minisign -G -W -p "$d/root.pub" -s "$d/root.key"
+          REVISED_ROOT_PUB="$d/root.pub" cargo zigbuild --release -p revised-daemon --bin revised-daemon --target arm-unknown-linux-musleabi
+          ls -l target/arm-unknown-linux-musleabi/release/revised-daemon
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Require embedded root key and matching version
+        run: |
+          if [ ! -f daemon/trust/root.pub ]; then
+            echo "::error::daemon/trust/root.pub is missing: a release must embed the owner root public key"
+            exit 1
+          fi
+          if cmp -s daemon/trust/root.pub catalog-dev/root.pub; then
+            echo "::error::daemon/trust/root.pub is the dev root (catalog-dev/root.pub): a release needs the owner root key"
+            exit 1
+          fi
+          if ! sed -n 2p daemon/trust/root.pub | grep -Eq '^RW[A-Za-z0-9+/=]+$'; then
+            echo "::error::daemon/trust/root.pub line 2 is not a minisign public key"
+            exit 1
+          fi
+          ver="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' ui/deploy/store-manifest.json | head -n1)"
+          if [ -z "$ver" ] || [ "$GITHUB_REF_NAME" != "v$ver" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match store-manifest.json version '$ver'"
+            exit 1
+          fi
+          echo "VER=$ver" >> "$GITHUB_ENV"
+
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Install toolchain (rust-toolchain.toml), cargo-zigbuild
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          cargo install cargo-zigbuild --version "$CARGO_ZIGBUILD_VERSION" --locked
+
+      - name: Cross-build ARM daemon (embeds daemon/trust/root.pub)
+        run: |
+          cargo zigbuild --release -p revised-daemon --bin revised-daemon --target arm-unknown-linux-musleabi
+          cp target/arm-unknown-linux-musleabi/release/revised-daemon ui/deploy/revised-daemon-arm
+
+      - name: Pack unsigned store package
+        run: |
+          cargo build --release --bin rvp-pack
+          STORE_SRC_ONLY=1 sh ui/deploy/mk-store-pkg.sh
+          target/release/rvp-pack catalog-dev/store-src "cmu-re-store-$VER.rvp" | tee core.hash
+          sha256sum "cmu-re-store-$VER.rvp" | tee "cmu-re-store-$VER.rvp.sha256"
+
+      - name: Attach package + checksum to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            cmu-re-store-${{ env.VER }}.rvp
+            cmu-re-store-${{ env.VER }}.rvp.sha256

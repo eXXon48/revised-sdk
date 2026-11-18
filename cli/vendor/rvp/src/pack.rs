@@ -23,7 +23,7 @@ fn err(m: impl Into<String>) -> RvpError {
 }
 
 /// Path made only of normal components: no empty, `.` or `..` parts.
-fn clean_components(p: &str) -> bool {
+pub(crate) fn clean_components(p: &str) -> bool {
     p.split('/').all(|c| !c.is_empty() && c != "." && c != "..")
 }
 
@@ -175,6 +175,9 @@ fn validate(m: &Manifest) -> Result<BTreeSet<&str>, RvpError> {
             return Err(err(format!("live path listed twice: {}", f.live)));
         }
     }
+    if let Some(c) = &m.config {
+        c.check(m)?;
+    }
     Ok(payloads)
 }
 
@@ -233,6 +236,15 @@ pub fn pack_dir(src_dir: &Path) -> Result<Vec<u8>, RvpError> {
             data,
             is_dir: false,
         });
+    }
+    // every template renders with the defaults: no unknown or unclosed placeholder ships
+    if let Some(c) = &m.config {
+        for o in &c.outputs {
+            let p = m.files.iter().find(|f| f.live == o.template).and_then(|f| f.payload.as_deref());
+            let data = entries.iter().find(|e| Some(e.name.as_str()) == p).map(|e| &e.data);
+            let text = data.and_then(|d| std::str::from_utf8(d).ok()).ok_or_else(|| err(format!("template is not UTF-8 text: {}", o.template)))?;
+            c.render(text, &c.defaults()).map_err(|e| err(format!("{}: {e}", o.template)))?;
+        }
     }
     gzip(&ustar_write(&entries)?)
 }

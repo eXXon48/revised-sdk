@@ -124,6 +124,9 @@ pub struct Manifest {
     /// The HMI must restart for this package to take effect. Emitted only when `true`.
     #[serde(default, skip_serializing_if = "is_false")]
     pub restart: bool,
+    /// Package settings (store UI + templates rendered into the jail). Emitted only when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<crate::config::Config>,
 }
 
 fn is_false(b: &bool) -> bool {

@@ -94,9 +94,12 @@ pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
             "mode": "0644", "owner": "1000:1000", "type": "new", "apply": "whole-file"}));
     }
     // note: author/category/minDaemon are fixed until mod.yaml grows those keys.
-    let manifest = json!({"formatVersion": 1, "name": m.name, "version": m.version, "author": "unknown",
+    let mut manifest = json!({"formatVersion": 1, "name": m.name, "version": m.version, "author": "unknown",
         "targetCMU": m.target_cmu, "category": "Apps", "description": app.title, "minDaemon": "0.1.0",
         "depends": "", "conflicts": "", "files": entries});
+    if let Some(c) = &m.config {
+        manifest["config"] = c.clone();
+    }
     let rv = |e: rvp::RvpError| err("pack", e.to_string());
     let parsed = rvp::manifest::Manifest::parse(&serde_json::to_vec(&manifest).expect("json serializes")).map_err(rv)?;
     let mj = stage.join("manifest.json");

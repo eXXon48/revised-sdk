@@ -4,12 +4,14 @@
  * RevisedHMI: a registry of apps (daemon-built registry.js), menu rows in
  * Applications / Entertainment, and ONE full-screen overlay at a time with an
  * own header + scrollport. App code is lazy-loaded on first row selection.
- * No daemon link, no dev eval bridge here: those stay in the injector.
+ * No dev eval bridge here: that is the dev-only package cmu-re-dev-bridge.
  */
 (function () {
   "use strict";
 
-  var REGISTRY_SRC = "/data_persist/cmu-re/ui/registry.js";
+  var REGISTRY_SRC = "/data_persist/cmu-re/pkg/.state/registry.js";
+  // contract-1 location; read only until the daemon has migrated it into pkg/.state
+  var REGISTRY_SRC_V1 = "/data_persist/cmu-re/ui/registry.js";
   var FALLBACK = { pkg: "cmu-re-store", id: "store", section: "applications", label: "Revised Store",
     base: "/data_persist/cmu-re/pkg/cmu-re-store/ui/", main: "controls.js", listen: false };
   var TAG = "[rvp-sdk]";
@@ -242,35 +244,15 @@
     // (onto the header) still ends the drag.
     // A move threshold keeps taps clicking; a capture-phase click swallows the click
     // that ends a real drag. note: 1:1 drag, no flick momentum.
-    // DEBUG mm-probe: per gesture, count mousemoves and their gaps (Opera replaying a
-    // backed-up queue shows as sub-4ms bursts). Goes out via RevisedHMI._send if the
-    // injector set it. Revert: delete the mm* block + its 3 calls, and the ptr send in dragDown.
-    // RELEASE GATE: removed together with the DEV-ONLY eval bridge (roadmap S4 release gates).
-    var lastY = 0, startY = 0, startTop = 0, dragging = false, dragMoved = 0, dragLogged = false;
-    var mmN = 0, mmT0 = 0, mmTprev = 0, mmBurst = 0, mmStall = 0, mmMin = 99999;
-    function send(evt) { if (window.RevisedHMI && window.RevisedHMI._send) { try { window.RevisedHMI._send(evt); } catch (e) {} } }
-    function mmReset() { mmN = 0; mmT0 = 0; mmTprev = 0; mmBurst = 0; mmStall = 0; mmMin = 99999; }
-    function mmTick() {
-      var t = +new Date();
-      if (!mmN) { mmT0 = t; }
-      else { var g = t - mmTprev; if (g < mmMin) mmMin = g; if (g < 4) mmBurst++; if (g > 30) mmStall++; }
-      mmTprev = t; mmN++;
-    }
-    function mmReport() {
-      send({ control: "env", action: "mm",
-        value: "n=" + mmN + " span=" + (mmTprev - mmT0) + "ms min=" + mmMin + " burst<4ms=" + mmBurst + " stall>30ms=" + mmStall,
-        ts: Date.now() });
-    }
+    var lastY = 0, startY = 0, startTop = 0, dragging = false, dragMoved = 0;
     function dragPos(e) { return (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY; }
     function dragDown(e) {
-      if (!dragLogged) { dragLogged = true; send({ control: "env", action: "ptr", value: e.type, ts: Date.now() }); }
-      dragging = true; dragMoved = 0; lastY = startY = dragPos(e); mmReset();
+      dragging = true; dragMoved = 0; lastY = startY = dragPos(e);
       startTop = st.pendingY !== null ? st.pendingY : port.scrollTop;
       // flag the content for the whole drag so a CSS :not(.rvp-dragging) hover gate stops matching
       if (host.className.indexOf("rvp-dragging") < 0) host.className += " rvp-dragging";
     }
     function dragMove(e) {
-      mmTick();
       if (!dragging) return;
       var y = dragPos(e); dragMoved += Math.abs(lastY - y); lastY = y;
       setPending(st, startTop + (startY - y));
@@ -280,7 +262,6 @@
       if (!dragging) return;
       dragging = false;
       host.className = host.className.replace(/\s*rvp-dragging\b/g, "");
-      mmReport();
     }
     port.addEventListener("touchstart", dragDown, false);
     port.addEventListener("touchmove", dragMove, false);
@@ -375,10 +356,43 @@
     });
   }
 
+  // ---- on-demand services (daemon WS via the injector's __rvpDaemon) ---------
+  var claims = {}, svcState = {}, svcHandlers = [], svcSub = false;   // claims: "pkg/name" -> {pkg,name}
+  function svcSend(action, c) {
+    var d = window.__rvpDaemon;
+    if (d) { try { d.send({ control: "service", action: action, value: { pkg: c.pkg, name: c.name } }); } catch (e) {} }
+  }
+  function svcFrame(f) {
+    var i, h;
+    if (!f) return;
+    if (f.t === "catalog") { for (i in claims) if (claims.hasOwnProperty(i)) svcSend("start", claims[i]); }   // new WS: claims are gone daemon-side
+    else if (f.t === "service") {
+      if (!f.error) svcState[f.name] = f.state;   // an error frame has no state: keep the last known
+      for (i = 0; i < svcHandlers.length; i++) {
+        h = svcHandlers[i];
+        if (h.name !== f.name) continue;
+        try { h.fn(f.error ? { error: f.error } : { state: f.state }); } catch (e) { logMsg("service listener threw: " + e); }
+      }
+    }
+  }
+  // pkg = part of the caller's key before "/": the open app, else the optional 2nd arg
+  function service(name, key) {
+    var k = key || (cur && cur.key) || "", c = { pkg: k.split("/")[0], name: name }, id = c.pkg + "/" + name;
+    if (!c.pkg) logMsg("service(\"" + name + "\"): no app open and no key given, the daemon will refuse it");
+    if (!svcSub && window.__rvpDaemon) { svcSub = true; window.__rvpDaemon.onFrame(svcFrame); }
+    return {
+      start: function () { claims[id] = c; svcSend("start", c); },
+      stop: function () { delete claims[id]; svcSend("stop", c); },
+      state: function () { return svcState[name] || "unknown"; },
+      on: function (ev, fn) { if (ev === "state" && typeof fn === "function") svcHandlers.push({ name: name, fn: fn }); }
+    };
+  }
+
   window.RevisedHMI = {
     apiVersion: 1,
     register: function (key, app) { registered[key] = app; },
     open: openKey,
+    service: service,
     log: function (m, key) { logMsg(m, key || (cur && cur.key)); },   // untagged with no key and no overlay
     on: function (name, fn) {
       if (!listeners[name] || typeof fn !== "function") return;
@@ -389,7 +403,9 @@
   function fire1(fn) { try { fn({}); } catch (e) { logMsg("ready listener threw: " + e); } }
 
   // ---- bootstrap -----------------------------------------------------------
-  loadScript(REGISTRY_SRC, consumeRegistry, function () { logMsg("registry.js not loaded, store row only"); consumeRegistry(); });
+  loadScript(REGISTRY_SRC, consumeRegistry, function () {
+    loadScript(REGISTRY_SRC_V1, consumeRegistry, function () { logMsg("registry.js not loaded, store row only"); consumeRegistry(); });
+  });
   waitFor(function () { return window.framework && window.framework.sendEventToMmui ? window.framework : null; },
     function (fw) { patchSendEvent(fw); patchContextChange(fw); patchKeys(); fwDone = true; maybeReady(); });
   // the system app owns the Applications / Entertainment menus (framework.getAppInstance, see injector)

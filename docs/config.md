@@ -4,18 +4,15 @@ A package can declare settings. The store shows them on the package page as a
 **Configuration** button (installed packages only). The user picks values with the knob or
 touch. The store writes the values into files of your package from templates you ship.
 
-> **SDK status:** `mod.yaml` has no `config:` key yet, so `revised build` does not emit this
-> block. Until it does, add `config` to the package `manifest.json` by hand and pack it with
-> `rvp-pack`.
-
 There is no free-text field. Every value comes from a list or a numeric range you declare, so a
 value can never break the syntax of the file it lands in. The store does no escaping.
 
 ## How it works
 
-1. Ship one or more **templates** in your package, for example `ui/settings.js.tpl`.
+1. Put one or more **templates** under `ui/`, for example `ui/settings.js.tpl`.
 2. Declare **fields** (the settings) and **outputs** (template -> rendered file) in the
-   manifest's `config` block.
+   `config:` block of `mod.yaml`. `build` copies it as is into the package manifest and
+   refuses the build if the block breaks a rule below.
 3. On install the store renders every output with the **default** values. The rendered file
    exists before your app first runs.
 4. When the user changes values and presses **Apply**, the store renders the outputs again and
@@ -41,7 +38,31 @@ var SETTINGS = {
 };
 ```
 
-The `config` block in `manifest.json`:
+The `config:` block in `mod.yaml`:
+
+```yaml
+config:
+  fields:
+    - key: accent
+      type: select
+      label: Accent colour
+      default: "#FF2A30"
+      options:
+        - { label: Red,   value: "#FF2A30" }
+        - { label: Green, value: "#2ECC71" }
+        - { label: Blue,  value: "#2E86FF" }
+    - { key: size,  type: range,  label: Font size,  default: 16, min: 12, max: 24, step: 2 }
+    - { key: rows,  type: number, label: Rows,       default: 3,  min: 1,  max: 9 }
+    - { key: clock, type: switch, label: Show clock, default: true }
+  outputs:
+    - { template: ui/settings.js.tpl, path: ui/settings.js }
+  apply: none
+```
+
+Quote YAML strings that start with `#` (a comment otherwise) or look like numbers or booleans
+(`"1"`, `"yes"`): a `select` value and the `switch` `on`/`off` must be strings.
+
+The same block lands in the package `manifest.json` as JSON:
 
 ```json
 "config": {
@@ -147,10 +168,14 @@ Template output: the `on` or `off` string. Example: `"on": "block", "off": "none
 
 | Key | Meaning |
 |-----|---------|
-| `template` | The `live` path of a file in your package. It must be a jailed (relative) `type: "new"` file. |
+| `template` | Path of a file in your package, as installed: `ui/<file under ui/>`. |
 | `path` | Where the rendered file goes, relative to your package directory. |
 
 Rules for `path`:
+
+- Do not keep a file at `path` in your `ui/` directory. `build` packs everything under `ui/`,
+  and an output that is also a package file is refused. In `preview` there is no store, so
+  the rendered file does not exist: give your app a fallback for a missing file.
 
 - It is relative and has no `..`, `.` or empty parts.
 - It is not a file of the package, and not listed twice.

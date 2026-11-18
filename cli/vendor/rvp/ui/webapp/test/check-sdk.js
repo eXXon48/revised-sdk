@@ -54,7 +54,7 @@ function openApp(entry, app) {   // select the row, run main (optionally registe
 }
 
 // registry path constant
-load(); assert.strictEqual(regScript().src, "/data_persist/cmu-re/ui/registry.js");
+load(); assert.strictEqual(regScript().src, "/data_persist/cmu-re/pkg/.state/registry.js");
 assert.strictEqual(window.RevisedHMI.apiVersion, 1);
 
 // rows_by_section
@@ -70,8 +70,11 @@ assert.strictEqual(rows("_buildEntertainmentDataList", "VehicleStatusMonitor").i
 
 // fallback_store_row
 function storeRows() { return rows("_buildApplicationsDataList", "Applications").items.filter(function (r) { return r.appData && r.appData.mmuiEvent === "RvpOpen:cmu-re-store/store"; }); }
-load(); regScript().onerror(); assert.strictEqual(storeRows().length, 1);
+load(); regScript().onerror();   // pkg/.state missing -> the v1 location is tried next
+assert.strictEqual(scripts()[1].src, "/data_persist/cmu-re/ui/registry.js");
+scripts()[1].onerror(); assert.strictEqual(storeRows().length, 1);
 assert.deepStrictEqual(storeRows()[0], rowOf(STORE));
+load(); regScript().onerror(); scripts()[1].onload(); assert.strictEqual(storeRows().length, 1);
 load(); regScript().onload(); assert.strictEqual(storeRows().length, 1);
 load(); reg([P1]); assert.strictEqual(storeRows().length, 1);
 load(); reg([STORE, P1]); assert.strictEqual(storeRows().length, 1);
@@ -269,5 +272,30 @@ window.RevisedHMI.register("p1/dash", { open: function () {} }); window.RevisedH
 window.RevisedHMI.log("c");
 var lg = logs.slice(nl).filter(function (l) { return / [abc]$/.test(l); });
 assert.deepStrictEqual(lg, ["[rvp-sdk] a", "[rvp-sdk p9/x] b", "[rvp-sdk p1/dash] c"]);
+
+// service: start/state/on, live claims re-sent on catalog
+load(); reg([P1]); var sent = [], fr = [];
+window.__rvpDaemon = { send: function (e) { sent.push(e); }, onFrame: function (f) { fr.push(f); return function () {}; } };
+window.RevisedHMI.register("p1/dash", { open: function () {} }); window.RevisedHMI.open("p1/dash");
+var sv = window.RevisedHMI.service("cam"), sv2 = window.RevisedHMI.service("aux"), sts = [];
+sv.on("state", function (st) { sts.push(st); });
+// service.start sends control service with pkg from key
+sv.start(); assert.deepStrictEqual(sent, [{ control: "service", action: "start", value: { pkg: "p1", name: "cam" } }]);
+assert.strictEqual(sv.state(), "unknown");
+// state updates from t:service frame
+fr[0]({ t: "service", name: "cam", state: "running" }); fr[0]({ t: "service", name: "other", state: "stopped" });
+assert.strictEqual(sv.state(), "running"); assert.deepStrictEqual(sts, [{ state: "running" }]);
+// an error frame has no state: listener gets only the error, last known state stays
+fr[0]({ t: "service", name: "cam", error: "boom" });
+assert.deepStrictEqual(sts[1], { error: "boom" }); assert.strictEqual(sv.state(), "running");
+// catalog frame re-sends only live claims
+sv2.start(); sv2.stop(); sent.length = 0; fr[0]({ t: "catalog" });
+assert.deepStrictEqual(sent, [{ control: "service", action: "start", value: { pkg: "p1", name: "cam" } }]);
+// stop removes the claim from the re-send set
+sv.stop(); assert.strictEqual(sent[1].action, "stop"); sent.length = 0; fr[0]({ t: "catalog" }); assert.strictEqual(sent.length, 0);
+// service without an open app or key logs a warning
+fw._contextChange({ ctxtId: "Home" }); nl = logs.length; window.RevisedHMI.service("x");
+assert(logs.slice(nl).some(function (l) { return /service\("x"\): no app open/.test(l); }), "pkg-less service warns");
+delete window.__rvpDaemon;
 
 console.log("check-sdk ok");

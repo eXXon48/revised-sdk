@@ -64,6 +64,7 @@ When a `preview` or `unit` action itself fails (exit 1), the rule id is the sub-
 - The jail and stock-path rules below are enforced by the daemon when it installs the package, not by lint. The project must not claim any path in the store's own namespace. Stock files are never part of a package.
 - Only `targetCMU: "74.00.324A"` is supported.
 - `mod.yaml` is the single source of truth. Do not hand-write `ui/hmi.json` or a manifest.
+- Package settings (the store's **Configuration** screen) go in the `config:` block of `mod.yaml`. Format and rules: `docs/config.md` in the SDK.
 
 ### Agent rules
 

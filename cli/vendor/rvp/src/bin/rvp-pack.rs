@@ -3,21 +3,24 @@
 //!   rvp-pack --emit-core <src_dir> <out.core>
 //!   rvp-pack --from-core <core> <out.rvp> [--sig <core.minisig>]
 //!   rvp-pack <src_dir> <out.rvp> [--sig <core.minisig>]
+//!   rvp-pack --extract-core <in.rvp> <out.core>   (signed or unsigned input)
 //!
 //! `--extra-stock <paths-file>` (any position, any form) appends `<f|d|l> <abs path>` lines to the
 //! built-in stock list, so test packages can modify fixture files that are not in stock.
 use std::path::Path;
 use std::process::ExitCode;
 
-use rvp::container::container_write;
+use rvp::container::{container_read, container_write};
 use rvp::hash::blake2b512_hex;
-use rvp::pack::{check_signable, pack_dir};
+use rvp::pack::{check_signable, pack_dir, unpack_mem};
+use rvp::smsvc::sm_services;
 use rvp::stock::{check_stock, Stock};
 
 const USAGE: &str = "usage:
   rvp-pack --emit-core <src_dir> <out.core>
   rvp-pack --from-core <core> <out.rvp> [--sig <core.minisig>]
   rvp-pack <src_dir> <out.rvp> [--sig <core.minisig>]
+  rvp-pack --extract-core <in.rvp> <out.core>
 any form also takes: [--extra-stock <paths-file>] (extra stock paths, for test fixtures)";
 
 fn read(p: &str) -> Result<Vec<u8>, String> {
@@ -43,6 +46,8 @@ const STOCK: &str = include_str!("../../stock/74.00.324A.paths");
 fn checked(core: Vec<u8>, extra: &str) -> Result<Vec<u8>, String> {
     let m = check_signable(&core).map_err(|e| e.to_string())?;
     check_stock(&m, &Stock::parse(&format!("{STOCK}\n{extra}"))).map_err(|e| e.to_string())?;
+    let (m, entries) = unpack_mem(&core).map_err(|e| e.to_string())?;
+    sm_services(&m, &entries).map_err(|e| e.to_string())?;
     Ok(core)
 }
 
@@ -62,6 +67,11 @@ fn run(args: &[String]) -> Result<(), String> {
     let core = match a.as_slice() {
         ["--emit-core", src, out] => {
             let core = pack(src, extra)?;
+            write(out, &core)?;
+            core
+        }
+        ["--extract-core", rvp, out] => {
+            let core = container_read(&read(rvp)?).map_err(|e| e.to_string())?.core;
             write(out, &core)?;
             core
         }

@@ -15,7 +15,7 @@ path = "src/main.rs"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-rvp = { git = "https://github.com/eXXon48/cmu-re-store", rev = "866409f400ec70c2fed846adc36cda0e26add839" }
+rvp = { git = "https://github.com/eXXon48/cmu-re-store", rev = "f95d0d6f05642f95634571cdd76ac967004e67a1" }
 serde_yaml = "0.9"
 md-5 = "=0.11.0"
 tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
@@ -24,4 +24,4 @@ tungstenite = { version = "=0.30.0", default-features = false, features = ["hand
 #   serde 1 (MIT OR Apache-2.0), serde_json 1 (MIT OR Apache-2.0), sha2 0.10 (MIT OR Apache-2.0)
 #   serde_yaml 0.9 (MIT OR Apache-2.0), md-5 0.11.0 (MIT OR Apache-2.0; digest 0.11 stack)
 #   tungstenite =0.30.0 (MIT OR Apache-2.0; handshake only, vendored from cmu-re-store; WS client for push)
-#   rvp 0.1.0 (cmu-re-store @ 866409f, package format crate; PolyForm Shield 1.0.0)
+#   rvp 0.1.0 (cmu-re-store @ f95d0d6, package format crate; PolyForm Shield 1.0.0)

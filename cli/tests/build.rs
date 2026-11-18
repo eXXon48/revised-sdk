@@ -113,3 +113,21 @@ fn unknown_command_exits_2_without_an_engine() {
     assert_eq!(o.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&o.stdout).contains("unknown command"));
 }
+
+#[test]
+fn build_passes_config_through() {
+    let base = tmp("cfg");
+    let proj = new_project(&base, "app", "t9").unwrap();
+    std::fs::write(proj.join("ui/settings.js.tpl"), "var S = { n: {{ n }} };\n").unwrap();
+    let cfg = "config:\n  fields:\n    - { key: n, type: number, label: Rows, default: 3, min: 1, max: 9 }\n  outputs:\n    - { template: ui/settings.js.tpl, path: ui/settings.js }\n  apply: none\n";
+    let y = std::fs::read_to_string(proj.join("mod.yaml")).unwrap();
+    std::fs::write(proj.join("mod.yaml"), format!("{y}{cfg}")).unwrap();
+    let bytes = std::fs::read(build(&proj).unwrap()).unwrap();
+    let (m, _) = rvp::pack::unpack_mem(&bytes[7..]).unwrap();
+    let c = m.config.expect("config in the manifest");
+    assert_eq!((c.fields[0].key.as_str(), c.outputs[0].path.as_str()), ("n", "ui/settings.js"));
+    // a bad block is refused by the package checks, not silently dropped
+    std::fs::write(proj.join("mod.yaml"), format!("{y}{}", cfg.replace("default: 3", "default: 30"))).unwrap();
+    let f = build(&proj).unwrap_err();
+    assert!(f[0].msg.contains("config:"), "{:?}", f[0].msg);
+}

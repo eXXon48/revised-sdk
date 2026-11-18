@@ -35,6 +35,8 @@ pub struct ModYaml {
     pub permissions: Vec<String>,
     #[serde(default)]
     pub changes: Vec<Value>,
+    /// Package settings, copied as is into the manifest's `config` (the package checks validate it).
+    pub config: Option<serde_json::Value>,
 }
 
 /// Project names are package names and HMI ids: `[a-z0-9][a-z0-9-]{0,31}`.

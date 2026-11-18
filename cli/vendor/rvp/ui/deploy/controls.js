@@ -37,7 +37,7 @@ var RevisedTestApp = (function () {
 
   var STYLE_ID = "rvp-store-styles";
   var RESTART_NOTE = "Menu changes appear after an HMI restart";   // design 2a: menus are built at HMI start
-  var PINNED = "cmu-re-store";   // the store itself: never listed, updated or removed here
+  var PINNED = "cmu-re-store";   // the store itself: listed in Apps, never removed here (updates: the update stick)
   // rating stars: constant SVG markup only (the HMI font may lack U+2605); no data goes into it
   var STAR_SVG = ' viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>';
   var STAR_ON = '<svg class="rvp-star on"' + STAR_SVG, STAR_OFF = '<svg class="rvp-star off"' + STAR_SVG;
@@ -61,6 +61,14 @@ var RevisedTestApp = (function () {
     mods: '<path d="M19.4 13a7.5 7.5 0 000-2l2.1-1.6-2-3.5-2.5 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 000 2l-2.1 1.6 2 3.5 2.5-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"/>',
     skin: '<path d="M12 3a9 9 0 000 18c1 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1-.3-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 005-5c0-4.4-4-8-9-8zM6.5 12a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm3-4a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm3 4a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/>',
     user: '<path d="M12 12a4.5 4.5 0 100-9 4.5 4.5 0 000 9zm0 2c-4 0-8 2-8 5v2h16v-2c0-3-4-5-8-5z"/>',
+    down: '<path d="M7 10l5 5 5-5z"/>',
+    up: '<path d="M7 14l5-5 5 5z"/>',
+    x: '<path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/>',
+    // card state icons (owner-picked svgrepo glyphs): installed / update / unsigned; stroke colour from CSS
+    info: '<path fill="none" stroke-width="1.5" stroke-linecap="round" d="M12 17V11"/><circle cx="12" cy="8" r="1"/>' +
+      '<path fill="none" stroke-width="1.5" d="M2 12C2 7.29 2 4.93 3.46 3.46 4.93 2 7.29 2 12 2c4.71 0 7.07 0 8.54 1.46C22 4.93 22 7.29 22 12c0 4.71 0 7.07-1.46 8.54C19.07 22 16.71 22 12 22c-4.71 0-7.07 0-8.54-1.46C2 19.07 2 16.71 2 12z"/>',
+    upd: '<g transform="scale(1.2632) translate(1.5 0)"><path d="M5.857 3.882v3.341a1.03 1.03 0 0 1-2.058 0v-.97a5.401 5.401 0 0 0-1.032 2.27 1.03 1.03 0 1 1-2.02-.395A7.462 7.462 0 0 1 2.235 4.91h-.748a1.03 1.03 0 1 1 0-2.058h3.34a1.03 1.03 0 0 1 1.03 1.03zm-3.25 9.237a1.028 1.028 0 0 1-1.358-.523 7.497 7.497 0 0 1-.37-1.036 1.03 1.03 0 1 1 1.983-.55 5.474 5.474 0 0 0 .269.751 1.029 1.029 0 0 1-.524 1.358zm2.905 2.439a1.028 1.028 0 0 1-1.42.322 7.522 7.522 0 0 1-.885-.652 1.03 1.03 0 0 1 1.34-1.563 5.435 5.435 0 0 0 .643.473 1.03 1.03 0 0 1 .322 1.42zm3.68.438a1.03 1.03 0 0 1-1.014 1.044h-.106a7.488 7.488 0 0 1-.811-.044 1.03 1.03 0 0 1 .224-2.046 5.41 5.41 0 0 0 .664.031h.014a1.03 1.03 0 0 1 1.03 1.015zm.034-12.847a1.03 1.03 0 0 1-1.029 1.01h-.033a1.03 1.03 0 0 1 .017-2.06h.017l.019.001a1.03 1.03 0 0 1 1.009 1.05zm3.236 11.25a1.029 1.029 0 0 1-.3 1.425 7.477 7.477 0 0 1-.797.453 1.03 1.03 0 1 1-.905-1.849 5.479 5.479 0 0 0 .578-.328 1.03 1.03 0 0 1 1.424.3zM10.475 3.504a1.029 1.029 0 0 1 1.41-.359l.018.011a1.03 1.03 0 1 1-1.06 1.764l-.01-.006a1.029 1.029 0 0 1-.358-1.41zm4.26 9.445a7.5 7.5 0 0 1-.315.56 1.03 1.03 0 1 1-1.749-1.086 5.01 5.01 0 0 0 .228-.405 1.03 1.03 0 1 1 1.836.93zm-1.959-6.052a1.03 1.03 0 0 1 1.79-1.016l.008.013a1.03 1.03 0 1 1-1.79 1.017zm2.764 2.487a9.327 9.327 0 0 1 0 .366 1.03 1.03 0 0 1-1.029 1.005h-.025A1.03 1.03 0 0 1 13.482 9.7a4.625 4.625 0 0 0 0-.266 1.03 1.03 0 0 1 1.003-1.055h.026a1.03 1.03 0 0 1 1.029 1.004z"/></g>',
+    warn: '<g fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></g>',
     pkg:  '<path d="M12 2L3 7v10l9 5 9-5V7zm0 2.3L18.6 8 12 11.7 5.4 8zM5 9.7l6 3.4v6.6l-6-3.4zm8 10v-6.6l6-3.4v6.6z"/>'
   };
   function svg(name) {
@@ -80,7 +88,6 @@ var RevisedTestApp = (function () {
   var TW_OFF = "Tripwire is OFF: if this package breaks boot, only a reflash recovers the unit.";
   // catalog `category` -> section; note: unknown/empty (installed, gone from the catalog) lands in Apps
   var SECTION_OF = { "Apps": "Apps", "System mods": "SysMods", "Skins": "Skins" };
-  var BADGE = { installed: "Installed", update: "Update" };
   var PERM_WORDS = { audio: "Audio", input: "Input", "system-dbus": "System bus" };
   var STAGE = { download: "Downloading", verify: "Verifying", apply: "Installing", revert: "Removing" };
 
@@ -115,6 +122,13 @@ var RevisedTestApp = (function () {
     ".rvp-sub{font-size:13px;color:#8A8A8A;margin-top:4px;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;}" +
     ".rvp-sub.rvp-err{color:#E05050;white-space:normal;}" +
     ".rvp-badge{position:absolute;right:14px;top:14px;height:22px;line-height:20px;padding:0 8px;border-radius:4px;font-size:12px;font-weight:600;color:#FFFFFF;border:1px solid #F03A3F;" + RED + "}" +
+    ".rvp-bi{position:absolute;right:16px;top:50%;margin-top:-16px;}" +
+    ".rvp-bi .rvp-i{width:32px;height:32px;}" +
+    ".rvp-bi-info .rvp-i{fill:#9A9A9A;stroke:#9A9A9A;}" +
+    ".rvp-bi-upd .rvp-i{fill:#FF2A30;}" +
+    ".rvp-bi-warn .rvp-i{stroke:#FFC400;}" +
+    ".rvp-chips{margin:0 0 10px;}" +
+    ".rvp-chips .rvp-btn{height:32px;line-height:30px;padding:0 16px;font-size:14px;margin-right:8px;}" +
     ".rvp-stars{position:absolute;right:14px;bottom:12px;font-size:13px;color:#CFCFCF;}" +
     ".rvp-strow{display:inline-block;vertical-align:middle;height:14px;line-height:14px;margin:0 4px;}" +
     ".rvp-star{display:inline-block;vertical-align:top;width:14px;height:14px;margin-right:1px;}" +
@@ -150,36 +164,88 @@ var RevisedTestApp = (function () {
     ".rvp-phint{top:363px;line-height:18px;font-size:14px;color:#5A5A5A;}" +
     /* package page */
     ".rvp-page{padding:16px 24px 24px;}" +
-    ".rvp-phead{position:relative;min-height:56px;padding:4px 130px 4px 60px;}" +
-    ".rvp-phead .rvp-ico{left:0;}" +
-    ".rvp-phead .rvp-badge{right:0;top:30px;}" +
-    ".rvp-phead .rvp-stars{right:0;top:4px;bottom:auto;}" +
     ".rvp-btns{margin:14px 0;}" +
     ".rvp-btn{display:inline-block;vertical-align:middle;margin-right:12px;height:42px;line-height:40px;padding:0 24px;border-radius:5px;font-size:15px;font-weight:600;color:#FFFFFF;border:1px solid #F03A3F;cursor:pointer;" + RED + "}" +
     ".rvp-btn.ghost{background:#1C1C1C;border:1px solid #444444;color:#CFCFCF;}" +
+    ".rvp-cfg{padding:16px 20px;border-bottom:1px solid #2A2C33;font-size:16px;line-height:22px;color:#FFFFFF;cursor:pointer;}" +
+    ".rvp-cfgval{float:right;color:#8A94A6;}" +
+    ".rvp-sw{position:relative;width:48px;height:26px;margin:-2px 0;border:1px solid #8A94A6;border-radius:13px;}" +   // border-box: 46x24 inside
+    ".rvp-swk{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:9px;background:#8A94A6;}" +
+    ".rvp-sw.on{border-color:#F03A3F;background:#E11218;}" +
+    ".rvp-sw.on .rvp-swk{left:25px;background:#FFFFFF;}" +
+    ".rvp-rng{position:relative;height:6px;margin:16px 10px 6px;border-radius:3px;background:#3A3D46;}" +
+    ".rvp-rngf{height:6px;border-radius:3px;background:#E11218;}" +
+    ".rvp-rngk{position:absolute;top:-6px;width:18px;height:18px;margin-left:-9px;border-radius:9px;background:#FFFFFF;}" +
+    ".rvp-cfg.rvp-edit .rvp-rngk{top:-8px;width:22px;height:22px;margin-left:-11px;border-radius:11px;}" +
+    ".rvp-num{margin:-6px 0;}" +
+    ".rvp-numb,.rvp-numv{display:inline-block;height:32px;line-height:32px;border:1px solid #3A3D46;text-align:center;color:#FFFFFF;}" +
+    ".rvp-numb{width:36px;background:#1A1C22;font-weight:600;}" +
+    ".rvp-numb:first-child{border-radius:5px 0 0 5px;}" +
+    ".rvp-numb:last-child{border-radius:0 5px 5px 0;}" +
+    ".rvp-numv{width:48px;border-left:0;border-right:0;background:#000000;}" +
+    ".rvp-cfg.rvp-edit .rvp-numv{border-color:#E11218;}" +
+    ".rvp-off{margin:0 20px 16px;padding:4px 16px 12px;border:1px solid #3A3D46;border-radius:5px;}" +
+    ".rvp-offl{margin:4px 0 0 22px;padding:0;color:#FFFFFF;font-size:15px;line-height:24px;}" +
+    ".rvp-cfg.dis{opacity:0.4;cursor:default;}" +
+    ".rvp-cfg.rvp-edit{border-left:4px solid #E11218;padding-left:16px;}" +
+    ".rvp-cfg.rvp-edit .rvp-cfgval{color:#FFFFFF;font-weight:600;}" +
     ".rvp-btn.dis{background:#1C1C1C;border:1px solid #2A2A2A;color:#5A5A5A;cursor:default;}" +
     ".rvp-dtrack{position:relative;height:46px;margin:14px 0;border:1px solid #444444;border-radius:5px;background:#1C1C1C;}" +
     ".rvp-dlabel{text-align:center;line-height:46px;font-size:15px;color:#CFCFCF;}" +
     ".rvp-dhandle{position:absolute;left:0;top:0;width:70px;height:46px;z-index:1;border-radius:5px;" + RED + "}" +
     ".rvp-line{font-size:15px;color:#CFCFCF;line-height:24px;margin:6px 0;}" +
-    ".rvp-shots{position:relative;width:384px;height:230px;margin:12px 0;}" +
-    ".rvp-shot{width:384px;height:216px;background:#1E1E1E;border:1px solid #2A2A2A;overflow:hidden;}" +
+    ".rvp-shots{position:relative;margin:12px 0;white-space:nowrap;}" +
+    ".rvp-shot{display:inline-block;vertical-align:top;width:232px;height:130px;margin-right:12px;background:#1E1E1E;border:1px solid #2A2A2A;overflow:hidden;cursor:pointer;}" +
     ".rvp-shot.rvp-grey{background:#3A3A3A;}" +
     ".rvp-cnt{position:absolute;right:8px;bottom:20px;font-size:13px;color:#FFFFFF;}" +
-    ".rvp-acc{font-size:15px;color:#FFFFFF;line-height:40px;cursor:pointer;}" +
-    ".rvp-chg{padding-left:16px;font-size:13px;color:#8A8A8A;line-height:20px;}" +
+    /* accordion: ui-kit mzd-accordion (framed group, gradient headers, red bar on the open one) */
+    ".rvp-accs{margin:16px 0;border:1px solid #2A2C33;border-radius:4px;overflow:hidden;}" +
+    ".rvp-acci{border-bottom:1px solid #2A2C33;}" +
+    ".rvp-acci:last-child{border-bottom:0;}" +
+    ".rvp-acc{position:relative;padding:16px 52px 16px 20px;font-size:16px;font-weight:500;line-height:22px;color:#FFFFFF;cursor:pointer;" +
+      "background:#232429;background:-o-linear-gradient(top,#2A2C33,#1C1D21);background:linear-gradient(to bottom,#2A2C33,#1C1D21);}" +
+    ".rvp-acci.open .rvp-acc{border-left:4px solid #E11218;padding-left:16px;}" +
+    ".rvp-acc .rvp-i{position:absolute;right:16px;top:15px;}" +
+    ".rvp-accb{padding:20px;background:#000000;color:#8A94A6;line-height:24px;}" +
+    ".rvp-chg{font-size:14px;color:#8A8A8A;line-height:22px;}" +
+    /* package page, store-listing style: title + author + stats left, big icon right */
+    ".rvp-phead{position:relative;min-height:112px;padding:0 130px 0 0;}" +
+    ".rvp-phead .rvp-ico{left:auto;right:0;top:0;margin-top:0;width:112px;height:112px;border-radius:24px;}" +
+    ".rvp-phead .rvp-ico .rvp-i{left:28px;top:28px;width:56px;height:56px;}" +
+    ".rvp-ptitle{font-size:30px;line-height:38px;color:#FFFFFF;}" +
+    ".rvp-pauth{font-size:15px;line-height:22px;color:#F03A3F;margin-top:4px;}" +
+    ".rvp-stats{margin-top:14px;white-space:nowrap;}" +
+    ".rvp-stat{display:inline-block;vertical-align:top;padding:0 18px;border-left:1px solid #2A2A2A;text-align:center;}" +
+    ".rvp-stat.first{padding-left:0;border-left:0;text-align:left;}" +
+    ".rvp-stv{font-size:16px;line-height:22px;color:#FFFFFF;}" +
+    ".rvp-stv .rvp-star{margin-left:3px;vertical-align:middle;}" +
+    ".rvp-rbtn{height:36px;line-height:34px;padding:0 14px;margin:4px 0 0 6px;vertical-align:top;font-size:14px;}" +
+    ".rvp-rbtn .rvp-strow{margin:0;}" +
+    ".rvp-stl{font-size:13px;line-height:18px;color:#8A8A8A;}" +
     /* drawer + scrim (modal, fixed) */
     ".rvp-scrim,.rvp-mscrim{position:absolute;left:0;right:0;top:48px;bottom:0;background:#000000;opacity:0.5;z-index:4;display:none;}" +
     ".rvp-draw{position:absolute;left:0;top:48px;bottom:0;width:280px;background:#0D0D0D;border-right:1px solid #2A2A2A;z-index:5;display:none;}" +
     ".rvp-mscrim{z-index:6;opacity:0.7;}" +
     ".rvp-modal{position:absolute;left:140px;right:140px;top:100px;padding:24px;background:#141414;border:1px solid #3A0C0E;border-radius:8px;z-index:7;display:none;}" +
     ".rvp-on{display:block;}" +
+    ".rvp-mshot{left:40px;right:40px;top:58px;padding:0;background:#000000;border:0;border-radius:0;}" +
+    ".rvp-mshot .rvp-shots,.rvp-mshot .rvp-shot{display:block;width:720px;height:405px;margin:0 auto;}" +
+    ".rvp-mshot .rvp-shots.rvp-focus{outline:0;box-shadow:none;}" +
+    ".rvp-mshot .rvp-cnt{bottom:8px;}" +
+    ".rvp-mx{position:absolute;right:8px;top:8px;width:44px;height:44px;border-radius:22px;background:#000000;opacity:0.7;cursor:pointer;}" +
+    ".rvp-mx .rvp-i{margin:10px;}" +
+    ".rvp-mrate{left:210px;right:210px;top:150px;padding:24px 0;text-align:center;}" +
+    ".rvp-pstar{display:inline-block;width:60px;height:60px;margin:0 6px;cursor:pointer;}" +
+    ".rvp-pstar .rvp-star{width:60px;height:60px;margin:0;}" +
+    ".rvp-pstar.rvp-focus{outline:0;box-shadow:none;}" +
     ".rvp-ditem{position:relative;height:56px;line-height:56px;padding:0 18px 0 54px;font-size:18px;color:#E8E8E8;border-bottom:1px solid #141414;border-left:4px solid #0D0D0D;cursor:pointer;}" +
     ".rvp-ditem .rvp-i{position:absolute;left:18px;top:16px;fill:#9A9A9A;}" +
     ".rvp-ditem.act{background:#1A0708;border-left:4px solid #E11218;}" +
     ".rvp-ditem.act .rvp-i{fill:#FFFFFF;}" +
     /* knob focus ring: the only visible focus */
-    ".rvp-focus{outline:3px solid #FF2A30;outline-offset:-3px;box-shadow:0 0 14px #B50E13;}" +
+    ".rvp-focus{outline:1px solid #FF2A30;outline-offset:-1px;box-shadow:0 0 20px #B50E13;}" +
+    /* accordion header: no red frame, a lighter header gradient marks the knob focus */
+    ".rvp-acc.rvp-focus{outline:0;box-shadow:none;background:#44464F;background:-o-linear-gradient(top,#50525C,#383A42);background:linear-gradient(to bottom,#50525C,#383A42);}" +
     /* while the SDK drags the scrollport: no shadows -> cheap per-frame raster */
     ".rvp-dragging *{box-shadow:none !important;text-shadow:none !important;}";
 
@@ -337,7 +403,7 @@ var RevisedTestApp = (function () {
     var chrome = [];
     function addChrome(node) { if (frame) { frame.appendChild(node); chrome.push(node); } return node; }
 
-    var section = "Apps", drawerOpen = false;
+    var section = "Apps", drawerOpen = false, filt = "";
     var stack = [{ kind: "root", idx: -1 }];   // screen stack of the current section; [0] = section root
     var modal = null;        // { kind:"restart", busy, err } | { kind:"rate", name }
     // store state fed by onDaemon
@@ -350,7 +416,7 @@ var RevisedTestApp = (function () {
     var topMsg = "";         // daemon error / warning / result line on top of the screen
     var pending = [];        // titles waiting for a head unit restart (catalog.restartPending)
     var sawCat = false;      // first catalog of this overlay: a pending restart opens the modal at once
-    var assets = {}, req = {}, assetNode = {};   // "name/kind/i" -> asset frame | asked | shown node
+    var assets = {}, req = {}, assetNode = {};   // "name/kind/i" -> asset frame | asked | nodes waiting for it
     var pairT = {};          // Pair screen timers: { stop (badge animation), cd (countdown) }
 
     // --- fixed chrome ---
@@ -413,9 +479,7 @@ var RevisedTestApp = (function () {
       section = key;
       stack = [{ kind: "root", idx: -1 }];
       fire("menu", "select", key);
-      drawerOpen = false;
-      draw.className = "rvp-chrome rvp-draw";
-      scrim.className = "rvp-chrome rvp-scrim";
+      setDrawer(false);
       idx = -1;
       show(true);
     }
@@ -451,6 +515,11 @@ var RevisedTestApp = (function () {
       show();
     }
     function openPage(name) { push({ kind: "page", name: name, shot: 0 }); }
+    function openConfig(name) {
+      var v = item(name).config.values, c = {}, k;
+      for (k in v) c[k] = v[k];
+      push({ kind: "config", name: name, vals: c, edit: -1 });
+    }
     function openUsbPage(u) { push({ kind: "page", name: u.name, usb: u, shot: 0 }); }
     function openUsb() { push({ kind: "usb", items: null }); store("usb-scan", null); }
     function openPair() { push({ kind: "pair", frame: null, node: null }); store("pair-start", null); }
@@ -478,7 +547,7 @@ var RevisedTestApp = (function () {
     // --- assets: asked once, filled in place when the frame comes -------------------
     function asset(node, name, kind, i) {
       var k = name + "/" + kind + "/" + i;
-      assetNode[k] = node;
+      (assetNode[k] = assetNode[k] || []).push(node);   // page thumb + viewer can wait on the same shot
       if (assets[k]) fill(node, assets[k]);
       else if (!req[k]) { req[k] = 1; store("asset", { name: name, kind: kind, i: i }); }
       return k;
@@ -503,7 +572,6 @@ var RevisedTestApp = (function () {
     function progText(p) { return (STAGE[p.stage] || "Working") + "\u2026 " + p.pct + "%"; }
 
     // --- views (one per screen kind) --------------------------------------------
-    function badge(it) { return it.unsigned ? "UNSIGNED" : BADGE[it.state]; }
     function rating(cls, it, more) {
       var r = el("div", cls);
       r.appendChild(stars(it.rating.avg, 5));
@@ -520,15 +588,39 @@ var RevisedTestApp = (function () {
       cd.appendChild(sub);
       if (prog[n] && !errs[n]) bar(cd, prog[n]);
       if (it.rating) cd.appendChild(rating("rvp-stars", it, ""));
-      if (badge(it)) cd.appendChild(el("div", "rvp-badge", badge(it)));
+      var st = it.unsigned ? "warn" : it.state === "update" ? "upd" : it.state === "installed" ? "info" : "";   // no text, an icon
+      if (st) cd.appendChild(el("div", "rvp-bi rvp-bi-" + st)).innerHTML = svg(st);
       cd.onclick = function () { if (it.path) openUsbPage(it); else openPage(n); };
       return cd;
     }
+    // filter chips on every list: All / Installed (incl. updates) / Available
+    function chips(list) {
+      var row = list.appendChild(el("div", "rvp-chips")), f = [["", "All"], ["installed", "Installed"], ["available", "Available"]], i;
+      for (i = 0; i < f.length; i++) row.appendChild(btn(f[i][1], (function (k) { return function () { filt = k; show(true); }; })(f[i][0]), filt !== f[i][0])).className += " rvp-chip";
+    }
+    // never-linked unit with the store server unreachable: how to get the head unit online (labels as the stock Settings shows them)
+    function offlineHelp(bare) {
+      var d = el("div", bare ? "" : "rvp-off"), l, i, st = [
+        "Turn on the hotspot on your phone, or make sure a 2.4 GHz Wi-Fi network is in range.",
+        "From the Home screen open Settings and go to the Devices tab.",
+        "Select Wi-Fi, turn Wi-Fi on and select your network.",
+        "Enter the network password and connect.",
+        "Make sure the Wi-Fi icon shows in the top bar."];
+      d.appendChild(el("div", "rvp-h2", "Please connect CMU to the internet"));
+      d.appendChild(el("div", "rvp-line", "To do so, follow these steps:"));
+      l = d.appendChild(el("ol", "rvp-offl"));
+      for (i = 0; i < st.length; i++) l.appendChild(el("li", "rvp-offs", st[i]));
+      d.appendChild(el("div", "rvp-line", "The store online status is shown in the top bar next to the clock."));
+      return d;
+    }
     function listView() {
-      var list = el("div", "rvp-list"), a = cat.items || [], i, n = 0;
+      var list = el("div", "rvp-list"), a = cat.items || [], i, n = 0, it;
+      chips(list);
       for (i = 0; i < a.length; i++) {
-        if (a[i].name === PINNED || a[i].devOnly || (SECTION_OF[a[i].category] || "Apps") !== section) continue;
-        list.appendChild(card(a[i])); n++;
+        it = a[i];
+        if (it.devOnly || (it.pinned ? "Apps" : SECTION_OF[it.category] || "Apps") !== section) continue;
+        if (filt && (it.state === "available") !== (filt === "available")) continue;
+        list.appendChild(card(it)); n++;
       }
       if (!n) list.appendChild(el("div", "rvp-empty", "Nothing here yet."));
       return list;
@@ -593,15 +685,16 @@ var RevisedTestApp = (function () {
     function ask(h, lines, ok, fn, gate) { openModal({ kind: "ask", h: h, lines: lines, ok: ok, fn: fn, gate: gate }, 0); }
     function devView() {
       var p = el("div", "rvp-pane"), tw = cat.tripwire, ssh = cat.ssh, a = cat.items || [], b, i;
-      function twRow(sw, label, can) {
-        var on = !!tw[sw], t = label + ": " + (on ? "ON" : "OFF");
+      function twRow(sw, label, can) {   // toggle row like a config switch; disabled = dimmed, not focusable
+        var on = !!tw[sw], r = p.appendChild(el("div", "rvp-cfg" + (can ? " rvp-act" : " dis")));
         function send() { closeModal(); store("tripwire", { switch: sw, on: !on }); }
-        b.appendChild(btn(t, !can ? null : on ? function () { ask("Turn off " + label + "?", [], null, send, "Drag to I AGREE"); }
-          : function () { ask("Turn on " + label + "?", [], "Turn on", send); }, true));
+        r.appendChild(el("span", "rvp-cfgval rvp-sw" + (on ? " on" : ""))).appendChild(el("span", "rvp-swk"));
+        r.appendChild(document.createTextNode(label));
+        if (can) r.onclick = on ? function () { ask("Turn off " + label + "?", [], null, send, "Drag to I AGREE"); }
+          : function () { ask("Turn on " + label + "?", [], "Turn on", send); };
       }
       if (tw) {
         p.appendChild(el("div", "rvp-h2", "Tripwire"));
-        b = p.appendChild(el("div", "rvp-btns"));
         twRow("nor", "NOR flip", !!tw.all);   // NOR flip only acts while All recovery is on
         twRow("all", "All recovery", true);
         p.appendChild(el("div", "rvp-line", "Takes effect after restart"));
@@ -690,16 +783,100 @@ var RevisedTestApp = (function () {
         if (!linked()) return btn("Sign in to " + op, openPair);
         return btn(label, function () { plan(n, op); });
       }
+      if (it.pinned) {   // the store: no Remove; the daemon refuses its ops (no OTA yet)
+        if (it.state === "update") r.appendChild(btn("Update with the update stick", null));
+        return r;
+      }
       if (it.state === "available") r.appendChild(gated("Install", "install"));
       if (it.state === "update") r.appendChild(gated("Update", "update"));
-      if (it.state !== "available") r.appendChild(btn("Remove", function () { act(n, "uninstall"); }, true));
+      // locked: an installed package needs it (sys-time, sys-trust); the daemon refuses the uninstall too
+      if (it.state !== "available" && it.config) r.appendChild(btn("Configuration", function () { openConfig(n); }));
+      if (it.state !== "available" && !it.locked) r.appendChild(btn("Remove", function () { act(n, "uninstall"); }, true));
       return r;
     }
-    function shotStrip(s, it) {
+    // package settings: one row per field; select/switch change on Enter, range/number on the
+    // knob while in edit mode (Enter toggles it); Apply sends the whole set once something changed
+    function cfgText(f, v) {
+      var i;
+      if (f.type === "select") for (i = 0; i < f.options.length; i++) if (f.options[i].value === v) return f.options[i].label;
+      return String(v);
+    }
+    function cfgStep(s, d, i) {   // i: field index, default = the row in edit mode
+      var f = item(s.name).config.fields[i == null ? s.edit : i], st = f.type === "range" ? f.step : 1;
+      s.vals[f.key] = Math.max(f.min, Math.min(f.max, s.vals[f.key] + d * st));
+      show();
+    }
+    function configView(s) {
+      var it = item(s.name), c = it.config, p = el("div", "rvp-page"), changed = false, i;
+      p.appendChild(el("div", "rvp-ptitle", (it.title || it.name) + " - Config"));
+      if (errs[s.name]) p.appendChild(el("div", "rvp-msg", errs[s.name]));
+      for (i = 0; i < c.fields.length; i++) {
+        (function (f, i) {
+          var r = p.appendChild(el("div", "rvp-cfg rvp-act" + (s.edit === i ? " rvp-edit" : "")));
+          if (f.type === "switch") r.appendChild(el("span", "rvp-cfgval rvp-sw" + (s.vals[f.key] ? " on" : ""))).appendChild(el("span", "rvp-swk"));   // toggle: track + knob
+          else if (f.type === "number") {   // input group: [-] value [+]; a tap steps by 1, no edit mode
+            var g = r.appendChild(el("span", "rvp-cfgval rvp-num"));
+            g.appendChild(el("span", "rvp-numb", "-")).onclick = function (e) { e.stopPropagation(); cfgStep(s, -1, i); };
+            g.appendChild(el("span", "rvp-numv", String(s.vals[f.key])));
+            g.appendChild(el("span", "rvp-numb", "+")).onclick = function (e) { e.stopPropagation(); cfgStep(s, 1, i); };
+          } else r.appendChild(el("span", "rvp-cfgval", cfgText(f, s.vals[f.key])));
+          r.appendChild(document.createTextNode(f.label));
+          if (f.type === "range") {   // slider: track filled to the value + thumb
+            var tr = r.appendChild(el("div", "rvp-rng")), pc = Math.round((s.vals[f.key] - f.min) * 100 / (f.max - f.min)) + "%";
+            tr.appendChild(el("div", "rvp-rngf")).style.width = pc;
+            tr.appendChild(el("span", "rvp-rngk")).style.left = pc;
+          }
+          r.onclick = function () {
+            var o = f.options, j;
+            if (f.type === "select") {   // own screen: a long list (timezones) must not cycle
+              for (j = 0; j < o.length && o[j].value !== s.vals[f.key]; j++) {}
+              push({ kind: "pick", name: s.name, cfg: s, f: f });
+              idx = hdrN + (j < o.length ? j : 0); paint();
+              return;
+            }
+            if (f.type === "switch") s.vals[f.key] = !s.vals[f.key];
+            else s.edit = s.edit === i ? -1 : i;
+            show();
+          };
+          if (s.vals[f.key] !== c.values[f.key]) changed = true;
+        })(c.fields[i], i);
+      }
+      p.appendChild(el("div", "rvp-btns")).appendChild(btn("Apply", changed ? function () {
+        s.edit = -1;
+        act(s.name, "config-set", { name: s.name, values: s.vals });
+      } : null));
+      return p;
+    }
+    function pickView(s) {   // select options; Enter picks and returns, Back leaves the value
+      var p = el("div", "rvp-page"), o = s.f.options, i;
+      p.appendChild(el("div", "rvp-ptitle", s.f.label));
+      for (i = 0; i < o.length; i++) {
+        (function (v) {
+          var r = p.appendChild(el("div", "rvp-cfg rvp-act"));
+          if (v === s.cfg.vals[s.f.key]) r.appendChild(el("span", "rvp-cfgval", "Selected"));
+          r.appendChild(el("span", "rvp-optl", o[i].label));
+          r.onclick = function () { s.cfg.vals[s.f.key] = v; pop(); };
+        })(o[i].value);
+      }
+      return p;
+    }
+    function shotRow(s, it) {   // page: every screenshot as a thumbnail; tap/Enter opens the viewer on it
+      var row = el("div", "rvp-shots"), i;
+      for (i = 0; i < it.shots; i++) {
+        (function (n) {
+          var b = row.appendChild(el("div", "rvp-shot rvp-act"));
+          asset(b, it.name, "shot", n);
+          b.onclick = function () { s.shot = n; openModal({ kind: "shot", s: s, it: it }, 0); };
+        })(i);
+      }
+      return row;
+    }
+    function shotStrip(s, it) {   // full-screen viewer: one shot + counter; knob/tilt/tap flip
       var strip = el("div", "rvp-shots rvp-act"), box = strip.appendChild(el("div", "rvp-shot"));
       var cnt = strip.appendChild(el("div", "rvp-cnt")), k = null;
       function showShot() {
-        if (k) delete assetNode[k];   // a late frame of the old shot must not fill this box
+        var w = k && assetNode[k], j;   // a late frame of the old shot must not fill this box
+        if (w) for (j = w.length - 1; j >= 0; j--) if (w[j] === box) w.splice(j, 1);
         box.className = "rvp-shot"; box.innerHTML = "";
         cnt.innerHTML = ""; cnt.appendChild(document.createTextNode((s.shot + 1) + "/" + it.shots));
         k = asset(box, it.name, "shot", s.shot);
@@ -712,37 +889,75 @@ var RevisedTestApp = (function () {
       showShot();
       return strip;
     }
+    function sizeText(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B"; }
+    // one stats cell: value over label
+    function stat(row, val, label) {
+      var c = row.appendChild(el("div", "rvp-stat" + (row.children.length ? "" : " first")));
+      if (typeof val === "string") c.appendChild(el("div", "rvp-stv", val)); else c.appendChild(val);
+      c.appendChild(el("div", "rvp-stl", label));
+    }
+    // accordion: header (knob-focusable) + body; open state kept on the screen entry
+    function accordion(box, s, key, label, body) {
+      var w = box.appendChild(el("div", "rvp-acci")), h = w.appendChild(el("div", "rvp-acc rvp-act", label)), ch = h.appendChild(el("span")), b = w.appendChild(body);
+      body.className += " rvp-accb";
+      function set() { b.style.display = s.acc[key] ? "block" : "none"; ch.innerHTML = svg(s.acc[key] ? "up" : "down"); w.className = "rvp-acci" + (s.acc[key] ? " open" : ""); }
+      h.onclick = function () { s.acc[key] = !s.acc[key]; set(); };
+      set();
+    }
+    // package page, laid out like a phone store listing
     function pageView(s) {
       var it = s.usb || item(s.name), n = it.name, p = el("div", "rvp-page"), h = p.appendChild(el("div", "rvp-phead"));
-      var d, i, chg, accEl;
+      var d, i, row, v, about, news, chg, files, rate, accs;
+      s.acc = s.acc || { about: true, news: false };
       h.appendChild(icon(it));
-      h.appendChild(el("div", "rvp-nm", it.title || n));
-      h.appendChild(el("div", "rvp-sub", (it.author ? "by " + it.author + " - " : "") + (it.version ? "v" + it.version : "")));
-      if (it.rating) h.appendChild(rating("rvp-stars", it, " (" + it.rating.count + ")"));
-      if (badge(it)) h.appendChild(el("div", "rvp-badge", badge(it)));
+      h.appendChild(el("div", "rvp-ptitle", it.title || n));
+      if (it.author) h.appendChild(el("div", "rvp-pauth", it.author));
+      row = h.appendChild(el("div", "rvp-stats"));
+      if (it.size) stat(row, sizeText(it.size), "Size");
+      if (it.version) stat(row, "v" + it.version, it.state === "update" && it.installed ? "You have v" + it.installed : "Version");
+      // rating next to the version: average + stars + votes, then Rate (own stars once rated)
+      rate = linked() && it.everInstalled;
+      if (it.rating || rate) {
+        v = el("div", "rvp-stv", it.rating ? String(it.rating.avg) : "-");
+        v.appendChild(stars(it.rating ? it.rating.avg : 0, 5));
+        stat(row, v, it.rating ? it.rating.count + (it.rating.count === 1 ? " review" : " reviews") : "No reviews");
+      }
+      if (rate) {
+        d = row.appendChild(btn(it.myStars ? "" : "Rate", online() ? function () { openModal({ kind: "rate", name: n }, it.myStars ? it.myStars - 1 : 0); } : null));
+        d.className += " rvp-rbtn";
+        if (it.myStars) { d.className += " ghost"; d.appendChild(stars(it.myStars, 5)); }   // red stars vanish on the red button
+      }
+      if (it.unsigned) h.appendChild(el("div", "rvp-badge", "UNSIGNED"));
       if (errs[n]) p.appendChild(el("div", "rvp-msg", errs[n]));
       if (prog[n]) {   // progress replaces the buttons
         d = p.appendChild(el("div", "rvp-pgbox"));
         subs[n] = d.appendChild(el("div", "rvp-sub", progText(prog[n])));
         bar(d, prog[n]);
       } else p.appendChild(buttons(it));
+      if (it.shots > 0) p.appendChild(shotRow(s, it));
+      about = el("div");
       d = (it.description || "").split("\n");
-      for (i = 0; i < d.length; i++) if (d[i]) p.appendChild(el("div", "rvp-p", d[i]));
-      if (it.shots > 0) p.appendChild(shotStrip(s, it));
-      p.appendChild(el("div", "rvp-line", permLine(it)));
-      if (it.depends) p.appendChild(el("div", "rvp-line", "Requires: " + it.depends));
-      if (it.conflicts) p.appendChild(el("div", "rvp-line", "Conflicts: " + it.conflicts));
+      for (i = 0; i < d.length; i++) if (d[i]) about.appendChild(el("div", "rvp-p", d[i]));
+      about.appendChild(el("div", "rvp-line", permLine(it)));
+      accs = p.appendChild(el("div", "rvp-accs"));
+      accordion(accs, s, "about", "About", about);
+      // `changes`: the release notes, newest first ("2.0.0: ...")
       if (it.changes && it.changes.length) {
-        accEl = p.appendChild(el("div", "rvp-acc rvp-act", "What it changes (" + it.changes.length + (it.changes.length === 1 ? " file)" : " files)")));
-        chg = p.appendChild(el("div", "rvp-chg"));
-        chg.style.display = s.open ? "block" : "none";
-        for (i = 0; i < it.changes.length; i++) chg.appendChild(el("div", null, it.changes[i]));
-        accEl.onclick = function () { s.open = !s.open; chg.style.display = s.open ? "block" : "none"; };
+        news = el("div", "rvp-chg");
+        for (i = 0; i < it.changes.length; i++) news.appendChild(el("div", null, it.changes[i]));
+        accordion(accs, s, "news", "What's new", news);
       }
-      if (linked() && it.everInstalled) {
-        if (it.myStars) p.appendChild(el("div", "rvp-line", "Your rating: ")).appendChild(stars(it.myStars, 5));
-        d = p.appendChild(el("div", "rvp-btns"));
-        d.appendChild(online() ? btn("Rate", function () { openModal({ kind: "rate", name: n }, 0); }) : btn("Offline", null));
+      // what it does to the unit: relations + the stock files it overrides (installed: registry;
+      // USB: manifest). ponytail: catalog entries carry no file list yet; add one to the api release if wanted
+      files = it.files || [];
+      if (it.path) { files = []; for (i = 0; i < (it.overrides || []).length; i++) files.push(it.overrides[i].live); }
+      if (it.depends || it.conflicts || files.length) {
+        chg = el("div", "rvp-chg");
+        if (it.depends) chg.appendChild(el("div", "rvp-line", "Requires: " + it.depends));
+        if (it.conflicts) chg.appendChild(el("div", "rvp-line", "Conflicts: " + it.conflicts));
+        if (files.length) chg.appendChild(el("div", "rvp-line", "Overrides " + files.length + (files.length === 1 ? " stock file:" : " stock files:")));
+        for (i = 0; i < files.length; i++) chg.appendChild(el("div", null, files[i]));
+        accordion(accs, s, "chg", "What it changes", chg);
       }
       return p;
     }
@@ -791,6 +1006,8 @@ var RevisedTestApp = (function () {
     }
     function screenView(s) {
       if (s.kind === "page") return pageView(s);
+      if (s.kind === "config") return configView(s);
+      if (s.kind === "pick") return pickView(s);
       if (s.kind === "confirm") return confirmView(s);
       if (s.kind === "pair") return pairView(s);
       if (s.kind === "usb") return usbView(s);
@@ -805,19 +1022,21 @@ var RevisedTestApp = (function () {
       slot.appendChild(el("span", "rvp-online" + (online() ? " on" : "")));
       if (cat && cat.devmode) slot.appendChild(el("span", "rvp-dev", "DEV"));
       if (pending.length) slot.appendChild(el("span", "rvp-pend rvp-act", "Restart pending")).onclick = openRestart;
+      if (cat && !online()) slot.appendChild(el("span", "rvp-pend rvp-act", "Connect to the internet")).onclick = function () { openModal({ kind: "offline" }, 0); };
     }
     // full re-render of the top screen; fresh = a new screen (scrolls to the top)
     function show(fresh) {
       var i, dev = !!(cat && cat.devmode);
       if (cat && dev !== drawDev) buildDrawer(dev);
       if (cat && !dev && section === "Developer") { section = "Account"; stack = [{ kind: "root", idx: -1 }]; idx = -1; fresh = true; }   // left dev mode
-      while (stack.length > 1 && top().kind === "page" && !top().usb && !item(top().name)) { stack.pop(); idx = top().idx; fresh = true; }   // package gone
+      while (stack.length > 1 && (top().kind === "page" && !top().usb && !item(top().name) || (top().kind === "config" || top().kind === "pick") && !(item(top().name) || {}).config)) { stack.pop(); idx = top().idx; fresh = true; }   // package gone
       setTitle("Revised Store - " + section);
       header();
       for (i = 0; i < ditems.length; i++) ditems[i].node.className = "rvp-ditem" + (ditems[i].key === section ? " act" : "");
       container.innerHTML = "";
       subs = {}; assetNode = {};
       if (topMsg) container.appendChild(el("div", "rvp-msg", topMsg));
+      if (cat && !online() && !linked() && stack.length === 1 && section !== "Developer") container.appendChild(offlineHelp());
       container.appendChild(screenView(top()));
       if (fresh) { scrollTo(0); scrollBase = 0; }
       paint();
@@ -836,7 +1055,13 @@ var RevisedTestApp = (function () {
       if (modal && modal.busy) return;   // Restarting...: never swap in a fresh modal (Later would reopen the store)
       openModal({ kind: "restart", busy: false, err: "" }, 1);
     }
-    function closeModal() { modal = null; showModal(); idx = top().idx; paint(); }
+    function closeModal() {
+      modal = null; showModal(); idx = top().idx; paint();
+    }
+    function rateFill(k) {
+      var a = modalEl.querySelectorAll(".rvp-pstar"), j;
+      for (j = 0; j < a.length; j++) a[j].innerHTML = j < k ? STAR_ON : STAR_OFF;
+    }
     function showModal() {
       var b, i;
       modalEl.innerHTML = "";
@@ -852,6 +1077,9 @@ var RevisedTestApp = (function () {
         b = modalEl.appendChild(el("div", "rvp-btns"));
         b.appendChild(btn("Later", closeModal, true));
         b.appendChild(btn("Restart", function () { modal.busy = true; modal.err = ""; store("reboot", null); showModal(); paint(); }));
+      } else if (modal.kind === "offline") {
+        modalEl.appendChild(offlineHelp(true));
+        modalEl.appendChild(el("div", "rvp-btns")).appendChild(btn("Close", closeModal));
       } else if (modal.kind === "devmode") {
         modalEl.appendChild(el("div", "rvp-h1", "DEVELOPER MODE"));
         modalEl.appendChild(el("div", "rvp-p", "Developer mode turns off the store's safety checks. Packages and settings you change here can leave the head unit unable to boot."));
@@ -871,12 +1099,16 @@ var RevisedTestApp = (function () {
         b = modalEl.appendChild(el("div", "rvp-btns"));
         b.appendChild(btn("Cancel", closeModal, true));
         if (!modal.gate) b.appendChild(btn(modal.ok, modal.fn));
-      } else {
-        modalEl.appendChild(el("div", "rvp-h1", "Rate " + title(modal.name)));
-        b = modalEl.appendChild(el("div", "rvp-btns"));
+      } else if (modal.kind === "shot") {   // full-screen screenshot viewer: knob/tap flips, Back closes
+        modalEl.className += " rvp-mshot";
+        b = modalEl.appendChild(shotStrip(modal.s, modal.it)).appendChild(el("div", "rvp-mx"));
+        b.innerHTML = svg("x");
+        b.onclick = function (e) { if (e) e.stopPropagation(); closeModal(); };   // tap only: the knob flips here, Back closes
+      } else {   // rate: just five stars; focus fills up to the focused one (rateFill), Enter/tap sends it
+        modalEl.className += " rvp-mrate";
         for (i = 1; i <= 5; i++) {
           (function (n, name) {
-            b.appendChild(btn(String(n), function () { store("rate", { name: name, stars: n }); closeModal(); }, true)).appendChild(stars(n, n));
+            modalEl.appendChild(el("div", "rvp-pstar rvp-act")).onclick = function () { store("rate", { name: name, stars: n }); closeModal(); };
           })(i, modal.name);
         }
       }
@@ -925,10 +1157,13 @@ var RevisedTestApp = (function () {
       if (!items.length) { idx = -1; return; }
       // default = first content element; with no content yet the burger shows focus but
       // idx stays -1, so content arriving later (catalog) still gets the default
-      if (idx < 0 && items.length > hdrN) idx = hdrN;
-      else if (idx >= items.length) idx = items.length - 1;
+      if (idx < 0 && items.length > hdrN) {
+        idx = hdrN;
+        while (idx < items.length - 1 && items[idx].className.indexOf("rvp-chip") >= 0) idx++;   // filter chips: reachable, not the default
+      } else if (idx >= items.length) idx = items.length - 1;
       focused = items[at()];
       focused.className += " rvp-focus";
+      if (modal && modal.kind === "rate") rateFill(at() + 1);
       if (inside(focused, container)) scrollToFocused(focused);
     }
     function at() { return idx < 0 ? 0 : idx; }
@@ -940,6 +1175,10 @@ var RevisedTestApp = (function () {
     // returns true when the key was used
     function keyDown(k) {
       var f = items[at()];
+      if (modal && modal.kind === "shot" && (k === 77 || k === 78)) k = k === 77 ? 39 : 37;   // viewer: knob flips
+      var cs = !modal && !drawerOpen && top().kind === "config" && top().edit >= 0 ? top() : null;
+      if (cs && (k === 77 || k === 78)) { cfgStep(cs, k === 77 ? 1 : -1); fire("knob", "intercept", { key: k }); return true; }   // edit mode: knob = value
+      if (cs && k === 8) { cs.edit = -1; show(); fire("knob", "intercept", { key: k }); return true; }
       if (k === 77) move(1);                 // CW
       else if (k === 78) move(-1);           // CCW
       else if (k === 13) activate();         // press
@@ -989,7 +1228,7 @@ var RevisedTestApp = (function () {
     // --- daemon frames (field names from daemon/src/server.rs) -------------
     function onDaemon(msg) {
       if (!msg || !msg.t) return;
-      var t = msg.t, n = msg.name, s, k, op, first;
+      var t = msg.t, n = msg.name, s, k, op, first, i;
       if (t === "catalog") {
         cat = msg;
         if (keepErr) keepErr = false; else errs = {};
@@ -1028,7 +1267,7 @@ var RevisedTestApp = (function () {
         }
         if (!msg.ok) { errs[n] = msg.error || "failed"; keepErr = true; }
         else {
-          topMsg = msg.error || RESTART_NOTE;   // ok + error: committed, only the ro remount failed
+          topMsg = msg.error || (msg.op === "config-set" ? "Settings applied" : RESTART_NOTE);   // ok + error: committed, only the ro remount failed
           if (msg.restart) {
             k = title(n);
             if (pending.indexOf(k) < 0) pending.push(k);   // the catalog that follows brings the full list
@@ -1061,7 +1300,7 @@ var RevisedTestApp = (function () {
       } else if (t === "asset") {
         k = n + "/" + msg.kind + "/" + msg.i;
         assets[k] = msg;
-        if (assetNode[k]) fill(assetNode[k], msg);
+        if (assetNode[k]) { for (i = 0; i < assetNode[k].length; i++) fill(assetNode[k][i], msg); delete assetNode[k]; }
         return;
       } else return;                            // rebooting: the modal already says so
       show();

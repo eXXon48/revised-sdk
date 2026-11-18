@@ -36,6 +36,10 @@ name = "rvp-verify"
 path = "src/bin/rvp-verify.rs"
 
 [[test]]
+name = "config"
+path = "tests/config.rs"
+
+[[test]]
 name = "container"
 path = "tests/container.rs"
 
@@ -60,12 +64,24 @@ name = "manifest"
 path = "tests/manifest.rs"
 
 [[test]]
+name = "pack_cli"
+path = "tests/pack_cli.rs"
+
+[[test]]
 name = "roundtrip"
 path = "tests/roundtrip.rs"
 
 [[test]]
+name = "smsvc"
+path = "tests/smsvc.rs"
+
+[[test]]
 name = "stream"
 path = "tests/stream.rs"
+
+[[test]]
+name = "trust"
+path = "tests/trust.rs"
 
 [[test]]
 name = "ustar"
@@ -78,6 +94,7 @@ path = "tests/verify.rs"
 [dependencies]
 base64 = "=0.23.1"
 blake2 = "=0.11.0"
+roxmltree = "=0.21.2"
 serde_json = "=1.0.154"
 
 [dependencies.ed25519-compact]

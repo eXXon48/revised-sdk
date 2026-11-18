@@ -2,9 +2,9 @@
 [source.crates-io]
 replace-with = "vendored-sources"
 
-[source."git+https://github.com/eXXon48/cmu-re-store?rev=866409f400ec70c2fed846adc36cda0e26add839"]
+[source."git+https://github.com/eXXon48/cmu-re-store?rev=f95d0d6f05642f95634571cdd76ac967004e67a1"]
 git = "https://github.com/eXXon48/cmu-re-store"
-rev = "866409f400ec70c2fed846adc36cda0e26add839"
+rev = "f95d0d6f05642f95634571cdd76ac967004e67a1"
 replace-with = "vendored-sources"
 
 [source.vendored-sources]

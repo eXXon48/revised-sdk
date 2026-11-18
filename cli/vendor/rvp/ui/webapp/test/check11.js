@@ -105,7 +105,7 @@ section(t, "SysMods");
 assert.strictEqual(t.titles[t.titles.length - 1], "Revised Store - SysMods");
 openPage(t, "T m1");
 assert.strictEqual(t.titles[t.titles.length - 1], "Revised Store - SysMods", "package page keeps the section title");
-assert(text(t.host).indexOf("by me") >= 0, "page shown");
+assert(text(t.host).indexOf("About") >= 0, "page shown");
 
 // ---- header_slot_online_dev --------------------------------------------------------
 t = mk(C([], { online: true, devmode: true }));
@@ -120,7 +120,8 @@ assert(text(t.slot).indexOf("DEV") < 0, "no DEV when devmode off");
 // ---- card_fields -----------------------------------------------------------------
 t = mk(C([I("a1", { rating: { avg: 4.6, count: 23 }, state: "update", installed: "0.9.0", icon: true }), I("a2")]));
 var cd = card(t, "T a1"), ct = text(cd);
-assert(ct.indexOf("T a1") >= 0 && ct.indexOf("sub a1") >= 0 && ct.indexOf("4.6") >= 0 && ct.indexOf("Update") >= 0, ct);
+assert(ct.indexOf("T a1") >= 0 && ct.indexOf("sub a1") >= 0 && ct.indexOf("4.6") >= 0, ct);
+assert.strictEqual(cd.querySelectorAll(".rvp-bi-upd").length, 1, "update: icon");
 assert.strictEqual(cd.querySelectorAll(".rvp-btn").length, 0, "no button on the card");
 var icoReq = store(t).filter(function (e) { return e.action === "asset"; });
 assert.strictEqual(icoReq.length, 1);
@@ -160,7 +161,7 @@ openPage(t, "T a1"); var n0 = t.sent.length;
 btn(t, "Sign in to install").onclick();
 assert(t.host.querySelectorAll(".rvp-pair").length === 1, "Sign in pushes the Pair screen");
 assert(store({ sent: t.sent.slice(n0) }).every(function (e) { return e.action !== "plan" && e.action !== "install"; }));
-assert.strictEqual(t.key(8), true); assert(text(t.host).indexOf("by me") >= 0, "Pair pops back to the page");
+assert.strictEqual(t.key(8), true); assert(text(t.host).indexOf("About") >= 0, "Pair pops back to the page");
 t = mk(C(three, { online: false }));
 openPage(t, "T a1"); assert.deepStrictEqual(btns(t), ["Offline"]);
 assert(hasCls(btn(t, "Offline"), "dis") && !hasCls(btn(t, "Offline"), "rvp-act"), "Offline is disabled");
@@ -169,24 +170,26 @@ openPage(t, "T a3"); assert.deepStrictEqual(btns(t), ["Offline", "Remove"]); t.k
 openPage(t, "T a2"); assert.deepStrictEqual(btns(t), ["Remove"]);
 
 // ---- page_sections -----------------------------------------------------------------------------
-t = mk(C([I("a1", { permissions: [], depends: "", changes: ["/jci/a", "/jci/b", "/jci/c"] }),
-  I("a2", { permissions: ["audio", "input"], depends: "t-basic (>= 1.0)", conflicts: "t-x" })]));
+t = mk(C([I("a1", { permissions: [], depends: "", changes: ["2.0.0: faster", "1.0.0: first"], files: ["/jci/a", "/jci/b"], size: 2048 }),
+  I("a2", { permissions: ["audio", "input"], depends: "t-basic (>= 1.0)", conflicts: "t-x" }), I("a3")]));
 openPage(t, "T a1");
 var pt = text(t.host);
 assert(pt.indexOf("Permissions: None") >= 0, pt);
 assert(pt.indexOf("Requires") < 0 && pt.indexOf("Conflicts") < 0, "empty depends/conflicts hidden");
-var acc = t.host.querySelectorAll(".rvp-acc")[0];
-assert.strictEqual(text(acc), "What it changes (3 files)");
-var chg = t.host.querySelectorAll(".rvp-chg")[0];
-assert.strictEqual(chg.style.display, "none", "collapsed");
-focusCls(t, "rvp-acc"); t.key(13);
-chg = t.host.querySelectorAll(".rvp-chg")[0];
-assert.strictEqual(chg.style.display, "block", "13 expands");
-assert(text(chg).indexOf("/jci/a") >= 0 && text(chg).indexOf("/jci/c") >= 0);
+assert(pt.indexOf("2 KB") >= 0 && pt.indexOf("v1.0.0") >= 0, "stats: size, version");
+var accs = t.host.querySelectorAll(".rvp-acc").map(text);
+assert.deepStrictEqual(accs, ["About", "What's new", "What it changes"]);
+var bodies = t.host.querySelectorAll(".rvp-accb");
+assert.deepStrictEqual(bodies.map(function (b) { return b.style.display; }), ["block", "none", "none"], "About open, rest collapsed");
+focusCls(t, "rvp-acc"); t.key(77); t.key(13);   // About -> What's new
+assert.strictEqual(t.host.querySelectorAll(".rvp-accb")[1].style.display, "block", "13 expands");
+assert(text(bodies[1]).indexOf("2.0.0: faster") >= 0);
+assert(text(bodies[2]).indexOf("Overrides 2 stock files:") >= 0 && text(bodies[2]).indexOf("/jci/b") >= 0);
 t.key(8); openPage(t, "T a2"); pt = text(t.host);
 assert(pt.indexOf("Requires: t-basic (>= 1.0)") >= 0 && pt.indexOf("Conflicts: t-x") >= 0, pt);
 assert(/Permissions: \w+, \w+/.test(pt), pt);
-assert.strictEqual(t.host.querySelectorAll(".rvp-acc").length, 0, "no changes: accordion hidden");
+t.key(8); openPage(t, "T a3");
+assert.deepStrictEqual(t.host.querySelectorAll(".rvp-acc").map(text), ["About"], "nothing new or changed: only About");
 
 // ---- rate_visibility ---------------------------------------------------------------------------
 t = mk(C([I("a1", { everInstalled: true }), I("a2")]));
@@ -195,30 +198,132 @@ openPage(t, "T a2"); assert(btns(t).indexOf("Rate") < 0, "never installed: no Ra
 t.ctl.onDaemon(C([I("a1", { everInstalled: true })], { account: { linked: false } }));
 openPage(t, "T a1"); assert(btns(t).indexOf("Rate") < 0, "unlinked: no Rate"); t.key(8);
 t.ctl.onDaemon(C([I("a1", { everInstalled: true })]));
-openPage(t, "T a1"); btn(t, "Rate").onclick();
-assert(modalText(t).length > 0, "star picker open");
-t.key(77); t.key(77); t.key(77); t.key(13);
+openPage(t, "T a1");
+assert(t.host.querySelectorAll(".rvp-phead")[0].querySelectorAll(".rvp-rbtn").length === 1, "Rate sits in the header");
+assert(text(t.host.querySelectorAll(".rvp-phead")[0]).indexOf("No reviews") >= 0, "no rating yet: No reviews");
+btn(t, "Rate").onclick();
+function pstars(x) { return x.frame.querySelectorAll(".rvp-modal")[0].querySelectorAll(".rvp-pstar"); }
+function filled(x) { return pstars(x).map(function (n) { return stars(n, "on"); }).join(""); }
+assert.strictEqual(pstars(t).length, 5, "star picker open: five stars");
+assert.strictEqual(text(t.frame.querySelectorAll(".rvp-modal")[0]), "", "stars only, no text");
+assert.strictEqual(filled(t), "10000", "not rated: focus on star 1");
+t.key(77); t.key(77); t.key(77);
+assert.strictEqual(filled(t), "11110", "knob fills up to the focused star");
+t.key(13);
 assert.deepStrictEqual([lastStore(t).action, lastStore(t).value], ["rate", { name: "a1", stars: 4 }]);
-assert.strictEqual(modalText(t), "", "picker closed after rating");
+assert.strictEqual(pstars(t).length, 0, "picker closed after rating");
 btn(t, "Rate").onclick(); n0 = t.sent.length;
-assert.strictEqual(t.key(8), true); assert.strictEqual(modalText(t), "", "back cancels the picker");
+assert.strictEqual(t.key(8), true); assert.strictEqual(pstars(t).length, 0, "back cancels the picker");
 assert(store({ sent: t.sent.slice(n0) }).length === 0, "cancel sends nothing");
 
-// ---- screenshots_lazy ----------------------------------------------------------------------------
+// ---- screenshots_row: every shot is a thumbnail on the page; Enter opens the viewer on that shot ----
 t = mk(C([I("a1", { shots: 3 })]));
 openPage(t, "T a1");
 var shots = store(t).filter(function (e) { return e.action === "asset"; });
-assert.deepStrictEqual(shots.map(function (e) { return e.value; }), [{ name: "a1", kind: "shot", i: 0 }], "only shot 0 on open");
-t.key(39);
-assert.strictEqual(store(t).filter(function (e) { return e.action === "asset"; }).length, 1, "39 off the strip does nothing");
-focusCls(t, "rvp-shots");
-t.key(39);
-assert.deepStrictEqual(lastStore(t).value, { name: "a1", kind: "shot", i: 1 });
-assert(text(t.host.querySelectorAll(".rvp-shots")[0]).indexOf("2/3") >= 0, "counter");
+assert.deepStrictEqual(shots.map(function (e) { return e.value.i; }), [0, 1, 2], "all three thumbs asked on open");
+assert.strictEqual(t.host.querySelectorAll(".rvp-shot").length, 3, "three thumbs");
 t.ctl.onDaemon({ t: "asset", name: "a1", kind: "shot", i: 1, error: "fetch failed" });
 assert.strictEqual(t.host.querySelectorAll(".rvp-grey").length, 1, "missing image = grey box");
-t.key(37); assert(text(t.host.querySelectorAll(".rvp-shots")[0]).indexOf("1/3") >= 0, "37 flips back");
-assert.strictEqual(store(t).filter(function (e) { return e.action === "asset"; }).length, 2, "shot 0 not asked again");
+focusCls(t, "rvp-shot"); t.key(77);   // second thumb
+// ---- screenshot_viewer: knob flips there, Back closes, cached shots not asked again ----
+t.key(13);
+assert(hasCls(mroot(t), "rvp-mshot") && modalText(t).indexOf("2/3") >= 0, "viewer open on shot 2");
+t.key(77); assert(modalText(t).indexOf("3/3") >= 0, "knob CW flips in viewer");
+t.key(37); t.key(37); assert(modalText(t).indexOf("1/3") >= 0, "37 flips back");
+assert.strictEqual(store(t).filter(function (e) { return e.action === "asset"; }).length, 3, "no shot asked twice");
+t.key(8);
+assert.strictEqual(modalText(t), "", "Back closes viewer");
+t.key(13); mroot(t).querySelectorAll(".rvp-mx")[0].onclick();
+assert.strictEqual(modalText(t), "", "close button closes viewer");
+
+// ---- config_button: installed package with a config gets Config next to Remove ----
+var CFG = { fields: [
+  { key: "accent", type: "select", label: "Accent colour", default: "#FF2A30",
+    options: [{ label: "Red", value: "#FF2A30" }, { label: "Green", value: "#2ECC71" }, { label: "Blue", value: "#2E86FF" }] },
+  { key: "size", type: "range", label: "Font size", default: 16, min: 12, max: 24, step: 2 },
+  { key: "count", type: "number", label: "Rows", default: 3, min: 1, max: 9 },
+  { key: "clock", type: "switch", label: "Show clock", default: true, on: "1", off: "0" }],
+  values: { accent: "#FF2A30", size: 16, count: 3, clock: true } };
+function cfgItem() { var c = { fields: CFG.fields, values: {} }, k; for (k in CFG.values) c.values[k] = CFG.values[k]; return I("skin", { state: "installed", installed: "1.0.0", config: c, title: "Skin" }); }
+function cfgRows(x) { return x.host.querySelectorAll(".rvp-cfg").map(function (r) { var v = r.querySelectorAll(".rvp-cfgval")[0]; return hasCls(v, "rvp-sw") ? (hasCls(v, "on") ? "On" : "Off") : hasCls(v, "rvp-num") ? text(v.querySelectorAll(".rvp-numv")[0]) : text(v); }); }
+t = mk(C([cfgItem()]));
+openPage(t, "Skin");
+assert(btns(t).indexOf("Configuration") >= 0 && btns(t).indexOf("Remove") >= 0, btns(t).join());
+t = mk(C([I("skin", { state: "installed", installed: "1.0.0", title: "Skin" }), I("av", { config: CFG, title: "Av" })]));
+openPage(t, "Skin"); assert(btns(t).indexOf("Configuration") < 0, "no config = no button");
+t.key(8); openPage(t, "Av"); assert(btns(t).indexOf("Configuration") < 0, "not installed = no button");
+// ---- config_screen_rows ----
+t = mk(C([cfgItem()]));
+openPage(t, "Skin"); btn(t, "Configuration").onclick();
+assert.deepStrictEqual(cfgRows(t), ["Red", "16", "3", "On"]);
+var sw = t.host.querySelectorAll(".rvp-cfg")[3].querySelectorAll(".rvp-cfgval")[0];
+assert(hasCls(sw, "rvp-sw") && sw.querySelectorAll(".rvp-swk").length === 1 && text(sw) === "", "switch = toggle (track + knob), no On/Off text");
+function rngFill(x) { return x.host.querySelectorAll(".rvp-cfg")[1].querySelectorAll(".rvp-rngf")[0].style.width; }
+assert.strictEqual(rngFill(t), "33%", "range = track filled to the value (16 of 12..24)");
+assert.strictEqual(t.host.querySelectorAll(".rvp-cfg")[1].querySelectorAll(".rvp-rngk")[0].style.left, "33%", "thumb at the value");
+assert.strictEqual(t.host.querySelectorAll(".rvp-cfg")[2].querySelectorAll(".rvp-rng").length, 0, "number has no slider");
+// ---- config_number_buttons: [-] value [+], a tap steps by 1 within min..max ----
+function numBtn(x, k) { return x.host.querySelectorAll(".rvp-cfg")[2].querySelectorAll(".rvp-numb")[k]; }
+var NOEV = { stopPropagation: function () {} };
+assert.deepStrictEqual([text(numBtn(t, 0)), text(numBtn(t, 1))], ["-", "+"], "number = [-] value [+]");
+numBtn(t, 1).onclick(NOEV); assert.strictEqual(cfgRows(t)[2], "4", "+ raises");
+assert(!t.host.querySelectorAll(".rvp-edit").length, "a tap does not enter edit mode");
+for (ci = 0; ci < 5; ci++) numBtn(t, 0).onclick(NOEV);
+assert.strictEqual(cfgRows(t)[2], "1", "- lowers, clamped at min");
+numBtn(t, 1).onclick(NOEV); numBtn(t, 1).onclick(NOEV); assert.strictEqual(cfgRows(t)[2], "3");
+assert(text(t.host).indexOf("Accent colour") >= 0, "labels shown");
+// ---- config_select_picker: Enter opens the option list, focus on the current one ----
+assert(hasCls(foc(t), "rvp-cfg"), "first row focused");
+t.key(13);
+assert.deepStrictEqual(t.host.querySelectorAll(".rvp-optl").map(text), ["Red", "Green", "Blue"], "picker lists the options");
+assert(text(t.host).indexOf("Accent colour") >= 0, "picker titled with the label");
+assert(text(foc(t)).indexOf("Red") >= 0, "focus on the current value");
+t.key(77); t.key(77); t.key(13);
+assert.strictEqual(cfgRows(t)[0], "Blue", "picked");
+assert(hasCls(foc(t), "rvp-cfg") && text(foc(t)).indexOf("Accent colour") >= 0, "focus back on the row");
+t.key(13); assert(text(foc(t)).indexOf("Blue") >= 0, "reopened on the new value");
+t.key(78); t.key(8);
+assert.strictEqual(cfgRows(t)[0], "Blue", "Back keeps the value");
+t.key(13); t.key(78); t.key(78); t.key(13);
+assert.strictEqual(cfgRows(t)[0], "Red");
+t.key(77); t.key(77); t.key(77); t.key(13); assert.strictEqual(cfgRows(t)[3], "Off", "switch toggles");
+t.key(13); assert.strictEqual(cfgRows(t)[3], "On");
+// ---- config_range_edit ----
+t.key(78); t.key(78); t.key(13);
+assert(hasCls(foc(t), "rvp-edit"), "edit mode on the size row");
+for (var ci = 0; ci < 5; ci++) t.key(77);
+assert.strictEqual(cfgRows(t)[1], "24", "clamped at max");
+assert.strictEqual(rngFill(t), "100%", "slider follows the knob");
+t.key(78); assert.strictEqual(cfgRows(t)[1], "22", "CCW steps down");
+t.key(13); assert(!hasCls(foc(t), "rvp-edit"), "Enter leaves edit mode");
+t.key(77); assert.strictEqual(cfgRows(t)[1], "22", "knob moves focus again");
+t.key(13); for (ci = 0; ci < 9; ci++) t.key(77);
+assert.strictEqual(cfgRows(t)[2], "9", "number clamps at max, steps by 1");
+t.key(8); assert(!hasCls(foc(t), "rvp-edit") && hasCls(foc(t), "rvp-cfg"), "Back leaves edit mode first");
+// ---- config_apply ----
+t = mk(C([cfgItem()]));
+openPage(t, "Skin"); btn(t, "Configuration").onclick();
+assert(hasCls(btn(t, "Apply"), "dis"), "Apply disabled while unchanged");
+t.key(13); t.key(77); t.key(13);   // accent -> Green
+assert(!hasCls(btn(t, "Apply"), "dis"), "Apply enabled after a change");
+btn(t, "Apply").onclick();
+assert.deepStrictEqual([lastStore(t).action, lastStore(t).value],
+  ["config-set", { name: "skin", values: { accent: "#2ECC71", size: 16, count: 3, clock: true } }]);
+t.ctl.onDaemon({ t: "result", name: "skin", op: "config-set", ok: true, restart: false });
+var ci2 = cfgItem(); ci2.config.values.accent = "#2ECC71";
+t.ctl.onDaemon(C([ci2]));
+assert(hasCls(btn(t, "Apply"), "dis"), "applied values = Apply disabled again");
+assert.deepStrictEqual(cfgRows(t), ["Green", "16", "3", "On"], "still on the Config screen");
+assert(text(t.host).indexOf("Settings applied") >= 0 && text(t.host).indexOf("HMI restart") < 0, "config result note, not the menu restart note");
+t.ctl.onDaemon({ t: "result", name: "skin", op: "config-set", ok: false, error: "bad value" });
+t.ctl.onDaemon(C([ci2]));
+assert(text(t.host).indexOf("bad value") >= 0, "error shown on the Config screen");
+// ---- config_back ----
+t.key(8);
+assert(btn(t, "Configuration") && text(t.host).indexOf("About") >= 0, "Back returns to the package page");
+btn(t, "Configuration").onclick();
+t.ctl.onDaemon(C([I("skin", { title: "Skin" })]));
+assert(!t.host.querySelectorAll(".rvp-cfg").length, "uninstalled: Config screen left");
 
 // ---- update_confirm_lists_versions ----------------------------------------------------------------
 t = mk(C([I("t-basic", { state: "update", installed: "1.0.0", version: "2.0.0" })]));
@@ -231,7 +336,7 @@ assert(text(t.host).indexOf("t-basic 1.0.0 -> 2.0.0") >= 0, text(t.host));
 assert.strictEqual(focText(t), "Update", "focus on OK");
 t.key(13);
 assert.deepStrictEqual([lastStore(t).action, lastStore(t).value], ["update", { name: "t-basic" }]);
-assert(text(t.host).indexOf("These packages") < 0 && text(t.host).indexOf("by me") >= 0, "back on the page");
+assert(text(t.host).indexOf("These packages") < 0 && text(t.host).indexOf("About") >= 0, "back on the page");
 // progress replaces the buttons, in place
 t.ctl.onDaemon({ t: "progress", name: "t-basic", stage: "download", pct: 10 });
 assert(text(t.host).indexOf("Downloading\u2026 10%") >= 0 && btns(t).indexOf("Update") < 0, "progress on the page");
@@ -250,7 +355,7 @@ assert.deepStrictEqual([lastStore(t).action, lastStore(t).value], ["plan", { nam
 t.ctl.onDaemon({ t: "plan", name: "t-dep", install: ["t-basic", "t-dep"] });
 assert(text(t.host).indexOf("t-basic") >= 0 && btns(t).join() === "Install,Cancel", "install confirm");
 t.key(77); assert.strictEqual(focText(t), "Cancel"); t.key(13);
-assert(text(t.host).indexOf("by me") >= 0 && lastStore(t).action === "plan", "cancel: page again, nothing sent");
+assert(text(t.host).indexOf("About") >= 0 && lastStore(t).action === "plan", "cancel: page again, nothing sent");
 // plan error -> on the page, no confirm; failed result keeps its error over the next catalog
 btn(t, "Install").onclick();
 t.ctl.onDaemon({ t: "plan", name: "t-dep", install: [], error: "t-dep conflicts with t-basic" });
@@ -297,9 +402,32 @@ assert.strictEqual(t.port.scrollTop, undefined, "the renderer never sets scrollT
 t.host.ev.click({ target: card(t, "T a3").children[1] });   // capture on the content, before the card's onclick
 assert(text(foc(t)).indexOf("T a3") >= 0, "tap moves the selector onto the tapped card");
 
-// ---- pinned_not_listed ------------------------------------------------------------------------
-t = mk(C([I("cmu-re-store", { title: "Revised Store", state: "installed", installed: "1.0.0" }), I("a1")]));
-assert(text(t.host).indexOf("Revised Store") < 0 && card(t, "T a1"), "pinned store package not listed");
+// ---- pinned_in_apps_locked_no_remove ----------------------------------------------------------
+t = mk(C([I("cmu-re-store", { title: "Revised Store", category: "System mods", state: "installed", installed: "1.0.0", pinned: true, locked: true }),
+  I("st", { category: "System mods", state: "installed", installed: "1.0.0", locked: true }), I("a1")]));
+assert(card(t, "Revised Store") && card(t, "T a1"), "the store is listed in Apps");
+assert(card(t, "Revised Store").querySelectorAll(".rvp-bi-info").length === 1 && text(card(t, "Revised Store")).indexOf("Installed") < 0, "installed: icon, no text");
+openPage(t, "Revised Store"); assert.deepStrictEqual(btns(t), [], "store: no Remove"); t.key(8);
+t.ctl.onDaemon(C([I("cmu-re-store", { title: "Revised Store", state: "update", installed: "0.9.0", pinned: true, locked: true }),
+  I("st", { category: "System mods", state: "installed", installed: "1.0.0", locked: true })]));
+openPage(t, "Revised Store"); assert.deepStrictEqual(btns(t), ["Update with the update stick"]); t.key(8);
+section(t, "SysMods");
+openPage(t, "T st"); assert.deepStrictEqual(btns(t), [], "locked: no Remove");
+
+// ---- filter_chips --------------------------------------------------------------------------------
+t = mk(C([I("a1", { state: "installed", installed: "1.0.0" }), I("a2"), I("a3", { state: "update", installed: "0.9.0" })]));
+function chip(x, label) { return x.host.querySelectorAll(".rvp-chip").filter(function (b) { return text(b) === label; })[0]; }
+function shown(x) { return x.host.querySelectorAll(".rvp-card").map(function (c) { return text(c.children[1]); }); }
+assert.deepStrictEqual(shown(t), ["T a1", "T a2", "T a3"]);
+chip(t, "Installed").onclick(); assert.deepStrictEqual(shown(t), ["T a1", "T a3"], "installed incl. updates");
+assert(!hasCls(chip(t, "Installed"), "ghost") && hasCls(chip(t, "All"), "ghost"), "active chip highlighted");
+chip(t, "Available").onclick(); assert.deepStrictEqual(shown(t), ["T a2"]);
+chip(t, "All").onclick(); assert.strictEqual(shown(t).length, 3);
+
+// ---- burger_glyph_after_pick ---------------------------------------------------------------------
+t = mk(C([I("a1")]));
+section(t, "SysMods");
+assert(t.frame.querySelectorAll(".rvp-burger")[0]._html.indexOf("M128") < 0, "burger back to the menu glyph");
 
 // ---- restart_modal_on_result ------------------------------------------------------------------
 t = mk(C([I("a1", { title: "A" })]));
@@ -385,14 +513,12 @@ assert(text(cd).indexOf("3.2") >= 0 && text(cd).indexOf("★") < 0, "number stay
 assert.deepStrictEqual([stars(cd, "on"), stars(cd, "off")], [3, 2], "card: 3 filled, 2 empty");
 openPage(t, "T s1");
 var ph = t.host.querySelectorAll(".rvp-phead")[0];
-assert(text(ph).indexOf("3.2 (7)") >= 0, text(ph));
-assert.deepStrictEqual([stars(ph, "on"), stars(ph, "off")], [3, 2], "page: 3 filled, 2 empty");
-var yr = t.host.querySelectorAll(".rvp-line").filter(function (n) { return text(n).indexOf("Your rating") === 0; })[0];
-assert.deepStrictEqual([stars(yr, "on"), stars(yr, "off")], [2, 3], "own rating 2 of 5");
-btn(t, "Rate").onclick();
-var pick = t.frame.querySelectorAll(".rvp-modal")[0].querySelectorAll(".rvp-btn");
-assert.deepStrictEqual(pick.map(function (b) { return stars(b, "on"); }), [1, 2, 3, 4, 5], "picker: n filled stars");
-assert.deepStrictEqual(pick.map(text), ["1", "2", "3", "4", "5"]);
+assert(text(ph).indexOf("3.2") >= 0 && text(ph).indexOf("7 reviews") >= 0, text(ph));
+assert.deepStrictEqual([stars(ph.querySelectorAll(".rvp-stv")[2], "on"), stars(ph.querySelectorAll(".rvp-stv")[2], "off")], [3, 2], "page: 3 filled, 2 empty next to the version");
+var yr = ph.querySelectorAll(".rvp-rbtn")[0];
+assert.deepStrictEqual([stars(yr, "on"), stars(yr, "off")], [2, 3], "Rate in the header shows own rating 2 of 5");
+yr.onclick();
+assert.strictEqual(filled(t), "11000", "rated 2: the picker opens on star 2");
 assert(all(t.frame).concat(all(t.slot)).every(function (n) { return n.tagName !== "#text" || n._t.indexOf("★") < 0; }), "no star glyph anywhere");
 
 // ---- home_order ---------------------------------------------------------------------------------
@@ -412,7 +538,7 @@ t = mk(C([I("f1"), I("f2")], { featured: ["f1"], news: NEWS }));
 section(t, "Home");
 assert.strictEqual(t.host.querySelectorAll(".rvp-banner").length, 0, "linked: no banner");
 t.host.querySelectorAll(".rvp-news").filter(function (n) { return text(n).indexOf("N new") >= 0; })[0].onclick();
-assert(text(t.host).indexOf("T f2") >= 0 && text(t.host).indexOf("by me") >= 0, "news pkg opens the page");
+assert(text(t.host).indexOf("T f2") >= 0 && text(t.host).indexOf("About") >= 0, "news pkg opens the page");
 assert.strictEqual(t.titles[t.titles.length - 1], "Revised Store - Home");
 t = mk(); section(t, "Home");
 assert(text(t.host).indexOf("No catalog yet") >= 0);
@@ -544,7 +670,7 @@ btn(t, "Install from USB").onclick();
 assert.strictEqual(lastStore(t).action, "usb-scan");
 t.ctl.onDaemon({ t: "usb", items: USB });
 assert(card(t, "u-sig") && card(t, "cmu-re-store"), "usb items listed");
-assert(text(card(t, "u-raw")).indexOf("UNSIGNED") >= 0, "UNSIGNED badge");
+assert.strictEqual(card(t, "u-raw").querySelectorAll(".rvp-bi-warn").length, 1, "unsigned: yellow triangle");
 openPage(t, "u-raw");
 assert.deepStrictEqual(btns(t), ["Install"]); assert(hasCls(btn(t, "Install"), "dis"), "unsigned: Install disabled");
 assert(text(t.host).indexOf("UNSIGNED") >= 0); t.key(8);
@@ -606,10 +732,13 @@ t.ctl.onDaemon(C([], { support: "lost" }));
 assert.strictEqual(t.titles[t.titles.length - 1], "Revised Store - Account");
 assert(enableBtn(t), "Account shown");
 assert.deepStrictEqual(dnames(t), ["Home", "Apps", "SysMods", "Skins", "Account"]);
-// tripwire_rows_and_gate
+// tripwire_rows_and_gate: each switch is a toggle row (state = the toggle, no ON/OFF button)
+function twr(x, label) { return x.host.querySelectorAll(".rvp-cfg").filter(function (r) { return text(r).indexOf(label) >= 0; })[0]; }
+function twOn(r) { return hasCls(r.querySelectorAll(".rvp-sw")[0], "on"); }
 t = dev(C([], DEV()));
-assert(btn(t, "NOR flip: ON") && btn(t, "All recovery: ON") && text(t.host).indexOf("Takes effect after restart") >= 0, text(t.host));
-btn(t, "NOR flip: ON").onclick();
+assert(twOn(twr(t, "NOR flip")) && twOn(twr(t, "All recovery")) && text(t.host).indexOf("Takes effect after restart") >= 0, text(t.host));
+assert(!btn(t, "NOR flip: ON") && hasCls(twr(t, "NOR flip"), "rvp-act"), "toggle rows, knob-focusable");
+twr(t, "NOR flip").onclick();
 assert(modalText(t).indexOf("Drag to I AGREE") >= 0 && t.frame.querySelectorAll(".rvp-dtrack").length === 1, "off: drag gate");
 n0 = store(t).length;
 drag(t, 0.95);
@@ -617,16 +746,17 @@ assert.strictEqual(store(t).length, n0 + 1);
 assert.deepStrictEqual([lastStore(t).action, lastStore(t).value], ["tripwire", { switch: "nor", on: false }]);
 assert.strictEqual(modalText(t), "", "closed after agree");
 t.ctl.onDaemon(C([], DEV({ tripwire: { nor: false, all: true } })));
-btn(t, "NOR flip: OFF").onclick();
+assert(!twOn(twr(t, "NOR flip")) && twOn(twr(t, "All recovery")), "off shown on the toggle");
+twr(t, "NOR flip").onclick();
 assert(modalText(t).length > 0 && t.frame.querySelectorAll(".rvp-dtrack").length === 0, "on: plain confirm, no gate");
 btn(t, "Turn on", mroot(t)).onclick();
 assert.deepStrictEqual([lastStore(t).action, lastStore(t).value], ["tripwire", { switch: "nor", on: true }]);
 assert.strictEqual(modalText(t), "");
 // nor_row_disabled_when_all_off
 t = dev(C([], DEV({ tripwire: { nor: true, all: false } })));
-assert(hasCls(btn(t, "NOR flip: ON"), "dis") && !hasCls(btn(t, "All recovery: OFF"), "dis"), "NOR disabled while All is off");
+assert(hasCls(twr(t, "NOR flip"), "dis") && !hasCls(twr(t, "NOR flip"), "rvp-act") && !twr(t, "NOR flip").onclick && !hasCls(twr(t, "All recovery"), "dis"), "NOR disabled while All is off");
 t = dev(C([], DEV({ tripwire: null })));
-assert(!btn(t, "All recovery: ON") && text(t.host).indexOf("Takes effect after restart") < 0, "no tripwire block when null");
+assert(!twr(t, "All recovery") && text(t.host).indexOf("Takes effect after restart") < 0, "no tripwire block when null");
 // ssh_enable_disabled_without_key
 t = dev(C([], DEV({ ssh: { on: false, ip: null, key: false, ever: false } })));
 assert(hasCls(btn(t, "Enable SSH"), "dis") && text(t.host).indexOf(SSHK) >= 0 && text(t.host).indexOf(SSHC) >= 0, text(t.host));
@@ -777,4 +907,22 @@ assert.strictEqual(sh.keyFn({ key: 8, phase: "down" }), false, "back at the root
 regs["cmu-re-store/store"].close();
 assert.strictEqual(offCalls, 1, "close unsubscribes from daemon frames");
 document.getElementById = realGet;
+// offline_connect_help: never linked + server unreachable -> root screens show the Wi-Fi steps
+t = mk(C(three, { online: false }));
+assert(text(t.host).indexOf("Please connect CMU") < 0, "linked unit: no help (it has been online before)");
+// offline_pill: offline store = header pill like "Restart pending"; tap shows the Wi-Fi steps in a modal
+var op = t.slot.querySelectorAll(".rvp-pend");
+assert(op.length === 1 && text(op[0]) === "Connect to the internet", text(t.slot));
+op[0].onclick();
+assert(modalText(t).indexOf("Devices") >= 0 && modalText(t).indexOf("next to the clock") >= 0, modalText(t));
+t.key(13); assert.strictEqual(modalText(t), "", "Close closes the instructions");
+t = mk(C(three, { online: true }));
+assert(text(t.slot).indexOf("Connect to the internet") < 0, "no pill when online");
+t = mk(C(three, { online: false }));
+t = mk(C(three, { online: false, account: { linked: false } }));
+assert(text(t.host).indexOf("Please connect CMU to the internet") >= 0 && text(t.host).indexOf("Devices") >= 0, text(t.host));
+assert.strictEqual(t.host.querySelectorAll(".rvp-offs").length, 5, "five steps");
+assert(text(t.host).indexOf("next to the clock") >= 0, "says where the online status shows");
+t.ctl.onDaemon(C(three, { online: true, account: { linked: false } }));
+assert(text(t.host).indexOf("Please connect CMU") < 0, "gone when online");
 console.log("ALL OK");

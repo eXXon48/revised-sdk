@@ -9,6 +9,7 @@ use ed25519_compact::{PublicKey, Signature};
 
 use crate::container::{container_head, FLAG_SIGNED};
 use crate::hash::blake2b512;
+use crate::trust::KeySet;
 use crate::RvpError;
 
 const UNTRUSTED: &str = "untrusted comment:";
@@ -112,13 +113,62 @@ pub fn verify_digest(digest: &[u8; 64], minisig_text: &str, pk: &PubKey) -> Resu
     Ok(())
 }
 
+/// Key id (bytes 2..10 of the decoded signature line) a minisign signature claims to be made by.
+pub fn sig_key_id(minisig_text: &str) -> Result<[u8; 8], RvpError> {
+    let raw = b64(
+        lines(minisig_text).get(1).copied().unwrap_or(""),
+        "signature",
+    )?;
+    if raw.len() != 74 {
+        return Err(err("signature: wrong length"));
+    }
+    let mut id = [0u8; 8];
+    id.copy_from_slice(&raw[2..10]);
+    Ok(id)
+}
+
+fn endorsed<'a>(sig: &str, ks: &'a KeySet) -> Result<&'a PubKey, RvpError> {
+    let id = sig_key_id(sig)?;
+    ks.keys.iter().find(|k| k.key_id == id).ok_or_else(|| {
+        let hex: String = id.iter().map(|b| format!("{b:02x}")).collect();
+        err(format!("signed by key {hex} which is not endorsed"))
+    })
+}
+
+/// [`verify`] with the key picked from `ks` by the key id inside the signature.
+pub fn verify_any(core: &[u8], sig: &str, ks: &KeySet) -> Result<(), RvpError> {
+    verify(core, sig, endorsed(sig, ks)?)
+}
+
+/// [`verify_digest`] with the key picked from `ks` by the key id inside the signature.
+pub fn verify_digest_any(digest: &[u8; 64], sig: &str, ks: &KeySet) -> Result<(), RvpError> {
+    verify_digest(digest, sig, endorsed(sig, ks)?)
+}
+
 /// Streams an `.rvp`: require SIGNED, hash the core while copying it to `core_out`, verify the
 /// signature over that hash. Returns `BLAKE2b-512(core)` (the catalog pin). Memory is one chunk;
 /// a write error from `core_out` (e.g. a size cap) aborts.
 pub fn verify_stream(
-    mut rvp: impl std::io::Read,
+    rvp: impl std::io::Read,
     pk: &PubKey,
     core_out: &mut dyn std::io::Write,
+) -> Result<[u8; 64], RvpError> {
+    stream_checked(rvp, core_out, |d, t| verify_digest(d, t, pk))
+}
+
+/// [`verify_stream`] against any key endorsed in `ks`.
+pub fn verify_stream_any(
+    rvp: impl std::io::Read,
+    ks: &KeySet,
+    core_out: &mut dyn std::io::Write,
+) -> Result<[u8; 64], RvpError> {
+    stream_checked(rvp, core_out, |d, t| verify_digest_any(d, t, ks))
+}
+
+fn stream_checked(
+    mut rvp: impl std::io::Read,
+    core_out: &mut dyn std::io::Write,
+    check: impl FnOnce(&[u8; 64], &str) -> Result<(), RvpError>,
 ) -> Result<[u8; 64], RvpError> {
     use blake2::{Blake2b512, Digest};
     let h = container_head(&mut rvp)?;
@@ -140,7 +190,7 @@ pub fn verify_stream(
     }
     let mut d = [0u8; 64];
     d.copy_from_slice(&hasher.finalize());
-    verify_digest(&d, text, pk)?;
+    check(&d, text)?;
     Ok(d)
 }
 

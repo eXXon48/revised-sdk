@@ -1,5 +1,5 @@
 #!/bin/sh
-# Remote driver for the bench CMU (DEV ONLY; needs the dev injector + revised-daemon --ctl).
+# Remote driver for the bench CMU (DEV ONLY; js/ctl/helpers need package cmu-re-dev-bridge installed).
 #   u.sh js '<code>'   eval <code> in the HMI page, print {action:"ok|err", value}
 #   u.sh sh '<cmd>'    run <cmd> on the unit (root)
 #   u.sh shot <name>   screenshot -> shots-s4/<name>.png next to this script
@@ -19,7 +19,7 @@ js)
   case "$2" in *.reload\(*) echo "refused: reloading the HMI page reboots the unit; use SafeReboot" >&2; exit 1 ;; esac
   # base64 so quotes/newlines survive ssh + FIFO; wait up to 6 s for the next "eval" log line
   code=$(printf '%s' "$2" | base64 -w0)
-  ssh $K "n=\$(grep -c '\"eval\"' $LOG); echo 'js:eval(atob(\"$code\"))' > /tmp/rvp-ctl; i=0; while [ \$i -lt 30 ]; do [ \$(grep -c '\"eval\"' $LOG) -gt \$n ] && break; usleep 200000; i=\$((i+1)); done; grep '\"eval\"' $LOG | tail -1 | sed 's/.*\"action\"://'" 2>&1 | strip ;;
+  ssh $K "n=\$(grep -c '\"eval\"' $LOG); echo 'js:eval(atob(\"$code\"))' > /tmp/rvp-ctl; i=0; while [ \$i -lt 30 ]; do [ \$(grep -c '\"eval\"' $LOG) -gt \$n ] && break; usleep 200000; i=\$((i+1)); done; [ \$i -lt 30 ] && grep '\"eval\"' $LOG | tail -1 | sed 's/.*\"action\"://' || echo 'no reply (dev bridge installed? HMI page started?)'" 2>&1 | strip ;;
 sh) ssh $K "$2" 2>&1 | strip ;;
 helpers) sh "$0" js "$(cat "$DIR/rvp-helpers.js")" ;;
 ctl) ssh $K "echo '$2' > /tmp/rvp-ctl" 2>&1 | strip ;;

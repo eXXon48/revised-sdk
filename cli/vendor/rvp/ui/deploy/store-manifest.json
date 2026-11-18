@@ -1,13 +1,13 @@
 {
   "formatVersion": 1,
   "name": "cmu-re-store",
-  "version": "0.3.1",
+  "version": "0.6.0",
   "author": "CMU-Revised",
   "targetCMU": "74.00.324A",
   "category": "System mods",
   "description": "Revised Store: on-HMI package store (daemon + UI)",
-  "minDaemon": "0.1.0",
-  "depends": "",
+  "minDaemon": "0.6.0",
+  "depends": "cmu-re-sys-time, cmu-re-sys-trust",
   "conflicts": "",
   "files": [
     { "live": "bin/revised-daemon", "payload": "payload/bin/revised-daemon", "mode": "0755", "owner": "1000:1000", "type": "new", "apply": "whole-file" },
