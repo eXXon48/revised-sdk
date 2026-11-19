@@ -80,3 +80,14 @@ fn bad_name_and_version_are_rejected() {
     let t = "name: ok\nversion: 1.0.0-rc.1+b2\ntargetCMU: \"74.00.324A\"\n";
     assert!(parse(t).is_ok());
 }
+
+#[test]
+fn hmi_background_no_rows() {
+    let m = parse(&yaml("app:\n  title: T\n  entry: ui/main.js\n  rows: []\n  background: true\n")).unwrap();
+    assert_eq!(
+        hmi_entries(&m),
+        json!({"apiVersion": 1, "entries": [
+            {"id": "mydash", "section": "none", "label": "T", "main": "main.js", "listen": true}
+        ]})
+    );
+}

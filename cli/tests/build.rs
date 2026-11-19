@@ -131,3 +131,30 @@ fn build_passes_config_through() {
     let f = build(&proj).unwrap_err();
     assert!(f[0].msg.contains("config:"), "{:?}", f[0].msg);
 }
+
+fn set_rows(proj: &std::path::Path, rows: &str, background: bool) {
+    let y = std::fs::read_to_string(proj.join("mod.yaml")).unwrap();
+    let mut out: Vec<String> = y.lines().filter(|l| !l.trim_start().starts_with("background:"))
+        .map(|l| if l.trim_start().starts_with("rows:") { format!("  rows: {rows}") } else { l.to_string() }).collect();
+    let i = out.iter().position(|l| l.trim_start().starts_with("rows:")).unwrap();
+    out.insert(i + 1, format!("  background: {background}"));
+    std::fs::write(proj.join("mod.yaml"), out.join("\n") + "\n").unwrap();
+}
+
+#[test]
+fn build_background_without_rows() {
+    let proj = new_project(&tmp("bg"), "app", "t5").unwrap();
+    set_rows(&proj, "[]", true);
+    let bytes = std::fs::read(build(&proj).unwrap()).unwrap();
+    let (_, entries) = rvp::pack::unpack_mem(&bytes[7..]).unwrap();
+    let hmi = entries.iter().find(|e| e.name == "payload/ui/hmi.json").unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&hmi.data).unwrap();
+    assert_eq!((v["entries"][0]["section"].as_str(), v["entries"][0]["listen"].as_bool()), (Some("none"), Some(true)));
+}
+
+#[test]
+fn build_rejects_empty_rows_without_background() {
+    let proj = new_project(&tmp("nobg"), "app", "t6").unwrap();
+    set_rows(&proj, "[]", false);
+    assert_eq!(build(&proj).unwrap_err()[0].rule, "rows");
+}

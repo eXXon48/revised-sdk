@@ -153,6 +153,12 @@ permissions: []
 changes: []                  # must stay empty in this SDK version
 ```
 
+A mod without a menu row (it only listens or patches the stock HMI): set `rows: []` and
+`background: true`. `build` then emits one entry with `section: "none"`; the store draws no row
+and loads `main.js` at HMI start. `rows: []` without `background: true` is refused. Needs
+Revised Store 0.7.0.2 or later (an older store skips the entry). `main.js` still runs when the
+framework is up, but `RevisedHMI.register` is not needed: there is nothing to open.
+
 ## Loop
 
 Work in this loop: `new`, `lint`, `build`, `preview up`, `eval` and `shot`, then `push`. All commands accept `--json`.

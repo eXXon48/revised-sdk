@@ -9,6 +9,11 @@ pub fn hmi_entries(m: &ModYaml) -> Value {
     let Some(app) = &m.app else { return json!({"apiVersion": 1, "entries": []}) };
     let both = app.rows.len() > 1;
     let main = app.entry.strip_prefix("ui/").unwrap_or(&app.entry);
+    if app.rows.is_empty() && app.background {
+        // background-only mod: no menu row, sdk.js only loads `main` at HMI start
+        let e = json!({"id": m.name, "section": "none", "label": app.title, "main": main, "listen": true});
+        return json!({"apiVersion": 1, "entries": [e]});
+    }
     let entries: Vec<Value> = app
         .rows
         .iter()
@@ -53,8 +58,8 @@ pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
     let Some(app) = &m.app else {
         return Err(err("no-app", "mod.yaml has no `app:` block; nothing to build".into()));
     };
-    if app.rows.is_empty() {
-        return Err(err("rows", "`app.rows` is empty: list apps and/or entertainment".into()));
+    if app.rows.is_empty() && !app.background {
+        return Err(err("rows", "`app.rows` is empty: list apps and/or entertainment, or set background: true".into()));
     }
     let main = app.entry.strip_prefix("ui/").filter(|r| !r.is_empty() && !r.contains("..") && !r.starts_with('/'));
     let Some(main) = main else {
