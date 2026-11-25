@@ -1,5 +1,5 @@
 //! Docs: `docs/agents/*.md` is the single source of the human guide and of the `AGENTS.md` template.
-//! After editing a source file run: `REVISED_DOCS_UPDATE=1 cli/t.sh cargo test --test docs`.
+//! After editing a source file run: `cli/t.sh env REVISED_DOCS_UPDATE=1 cargo test --test docs`.
 use revised_sdk::new::new_project;
 use std::path::{Path, PathBuf};
 
@@ -43,7 +43,7 @@ fn generated_docs_in_sync() {
         }
         assert!(
             read(rel) == want,
-            "{rel} is stale: run REVISED_DOCS_UPDATE=1 cli/t.sh cargo test --test docs"
+            "{rel} is stale: run cli/t.sh env REVISED_DOCS_UPDATE=1 cargo test --test docs"
         );
     }
 }

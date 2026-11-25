@@ -67,7 +67,10 @@ When a `preview` or `unit` action itself fails (exit 1), the rule id is the sub-
 - Search stock files only in the read-only baseline directory (the one `baseline check` recorded; mount it read-only if you search it from a container). Never run `grep -r`, `find` or any recursive search on the unit.
 - Never remount the baseline read-write.
 - Never copy stock files into the package or the repository.
-- Run `push` only on a unit that is in Developer mode. `push` is refused otherwise.
+- Run `push` only on a unit that is in Developer mode. `push` is refused otherwise. Ask the developer before every `push`.
+- Never edit the unit's file system by hand (no `scp`, `cp`, `rm`, `chmod`, `sed` or remount over SSH). Changes reach the unit only as packages that the store installs and uninstalls.
+- Never add anything above the `# cmu-re:tripwire` line in `/jci/scripts/start_normal_mode.sh`. That line starts the boot-loop guard, and code above it runs before the guard.
+- File ownership is always numeric `uid:gid`, never a user name. Stock files are owned by `1000:1000`, and uid 1000 has no user name.
 - Never write the `.up` password, or anything derived from it, into any file, log or message. Refer to it only as the environment variable `CMU_UP_PASS`.
 - Do not edit `ui/hmi.json`, `dist/` or `.revised/`. They are generated or per-machine.
 - Use `--json` and read the `ok`, `errors[].rule`, `errors[].file` and `errors[].line` fields. Do not parse the plain-text output.

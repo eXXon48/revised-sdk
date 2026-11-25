@@ -13,4 +13,4 @@ revised-sdk lint && revised-sdk build              # dist/mydash-0.1.0.rvp
 revised-sdk preview up --accept-opera-license      # accepts the Opera 12.10 EULA; see docs/guide.md
 ```
 
-The full guide is `docs/guide.md`. It is assembled from `docs/agents/*.md`, the same text that goes into `AGENTS.md` in new projects. Edit the parts, then run `REVISED_DOCS_UPDATE=1 cli/t.sh cargo test --test docs` to regenerate.
+The full guide is `docs/guide.md`. It is assembled from `docs/agents/*.md`, the same text that goes into `AGENTS.md` in new projects. Edit the parts, then run `cli/t.sh env REVISED_DOCS_UPDATE=1 cargo test --test docs` to regenerate.
