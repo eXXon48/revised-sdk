@@ -14,3 +14,14 @@ revised-sdk preview up --accept-opera-license      # accepts the Opera 12.10 EUL
 ```
 
 The full guide is `docs/guide.md`. It is assembled from `docs/agents/*.md`, the same text that goes into `AGENTS.md` in new projects. Edit the parts, then run `cli/t.sh env REVISED_DOCS_UPDATE=1 cargo test --test docs` to regenerate.
+
+## License
+
+Source-available under the [PolyForm Shield License 1.0.0](./LICENSE). You may use, modify and
+freely share it for almost any purpose, including charging for a service you perform (such as
+installing a free copy). You may not sell it or offer a competing product; the right to sell or
+commercially distribute it is reserved to the project owner. This is source-available, not OSI
+"open source".
+
+Contributions are welcome under the [Individual CLA](./CLA.md); see [CONTRIBUTING.md](./CONTRIBUTING.md). Do not submit OEM (Mazda/JCI) binaries, keys or
+PKI material: the repository is kept IP-clean.
