@@ -45,7 +45,6 @@ pub fn scan(src: &[char]) -> Vec<(usize, String)> {
             ("calc(", "`calc()` is not supported by Presto: use fixed values"),
             ("clip-path", "`clip-path` is not supported by Presto"),
             ("-webkit-", "`-webkit-` properties are not supported by Presto"),
-            ("-o-", "`-o-` prefixed properties are not supported by this Presto: use the unprefixed form"),
         ] {
             if starts(&c, i, pat) {
                 out.push((i, msg.to_string()));
@@ -58,6 +57,9 @@ pub fn scan(src: &[char]) -> Vec<(usize, String)> {
                 let v: String = c[j..].iter().take_while(|x| ident(**x)).collect();
                 if ["flex", "inline-flex", "grid", "inline-grid"].contains(&v.as_str()) {
                     out.push((i, format!("`display: {v}` is not supported by Presto: use block, inline-block or float")));
+                } else if v.starts_with("table") || v == "inline-table" {
+                    // Presto lays these out, but text in cells built after load is not repainted
+                    out.push((i, format!("`display: {v}` does not repaint reliably in the HMI: use inline-block with vertical-align")));
                 }
             }
         }

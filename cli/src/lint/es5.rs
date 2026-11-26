@@ -109,6 +109,8 @@ pub fn scan(c: &[char]) -> Vec<(usize, &'static str)> {
                 "reload" if prop && nx == '(' => {
                     Some("`.reload()` of the HMI page reboots the unit ~1 min later: never reload; SafeReboot instead")
                 }
+                "Promise" if !prop => Some("`Promise` does not exist in the HMI browser: use callbacks"),
+                "fetch" if !prop && nx == '(' => Some("`fetch()` does not exist in the HMI browser: use XMLHttpRequest"),
                 "of" if !prop && for_parens.last() == Some(&depth) => {
                     Some("`for (... of ...)` is not ES5: use an indexed `for` loop")
                 }

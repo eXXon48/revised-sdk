@@ -4,8 +4,8 @@
 
 The HMI is the 2012 Opera (Presto) browser. `revised-sdk lint` enforces these rules on every `ui/**/*.js`, `ui/**/*.css` and `ui/**/*.html` file. `build` runs lint first and stops on errors. `build` does not print lint warnings (only errors): run `lint` to see them. Lint reads `style=""` attributes in HTML, but does not look inside `<style>` or `<script>` blocks: keep CSS and JavaScript in their own `.css` and `.js` files.
 
-- JavaScript is ES5 only. Do not use `let`, `const`, arrow functions, `class`, template strings, spread or rest `...`, `for...of`, `async` or `await`. Use `var`, function expressions, string concatenation and indexed `for` loops. There is no `Promise`.
-- CSS: no `display: flex`, `inline-flex`, `grid` or `inline-grid` (use `block`, `inline-block` or `float`), no `var(`, no `calc(`, no `clip-path`, no `-webkit-` and no `-o-` properties.
+- JavaScript is ES5 only. Do not use `let`, `const`, arrow functions, `class`, template strings, spread or rest `...`, `for...of`, `async` or `await`. Use `var`, function expressions, string concatenation and indexed `for` loops. There is no `Promise` and no `fetch()`: use callbacks and `XMLHttpRequest`.
+- CSS: no `display: flex`, `inline-flex`, `grid` or `inline-grid` (use `block`, `inline-block` or `float`), no `var(`, no `calc(`, no `clip-path`, no `display: table`, `table-cell` or `inline-table` (cells built after load do not repaint), no `-webkit-` properties. The vendor prefix is `-o-`: write it before the unprefixed form (`-o-linear-gradient(...)`, then `linear-gradient(...)`).
 - Files must be valid UTF-8.
 - Never reload or navigate the HMI page (`location.reload()`, `location.href = ...`). It reboots the whole unit about a minute later. To pick up changed code, use `push` or SafeReboot.
 

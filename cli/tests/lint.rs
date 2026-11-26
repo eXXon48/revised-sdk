@@ -44,6 +44,8 @@ fn es5_tokens_flagged_with_position() {
         ("for (var x of xs) {}", 12),
         ("async function f() {}", 1),
         ("function f() { await g(); }", 16),
+        ("var p = new Promise(f);", 13),
+        ("fetch(u, o);", 1),
     ] {
         let (_, f) = js("es5", src);
         let h = rules(&f, "es5-syntax");
@@ -68,6 +70,7 @@ var g = a / b / c;
 for (var i = 0; i < n; i++) { f(of); }
 var classes = 1, letter = 2, asyncs = 3, constant = 4, awaiting = 5;
 var h = [1].map(function (v) { return /=>/.test(v); });
+var k = api.fetch(u) + o.Promise + "fetch(" + fetchAll(u);
 "#;
     let (_, f) = js("neg", src);
     assert!(f.is_empty(), "{f:?}");
@@ -106,11 +109,13 @@ fn css_presto() {
         "ui/style.css",
         ".app-m-a { display: flex; }\n.app-m-b{DISPLAY:inline-grid;width:calc(1px + 2px);color:var(--x)}\n\
          .app-m-c { -webkit-transition: none; -o-transition: none; clip-path: none; }\n\
-         /* display:flex; var(--x) */\n.app-m-d { display: block; margin: 0 }\n.app-m-o-x { color: red }\n",
+         /* display:flex; var(--x) */\n.app-m-d { display: block; margin: 0 }\n.app-m-o-x { color: red }\n\
+         .app-m-e { display: table-cell; } .app-m-f { display: inline-table; } .app-m-g { display: inline-block; }\n",
     );
     let f = run(&p);
+    // `-o-transition` (3, 38) is fine: `-o-` is the HMI browser's own prefix
     let got: Vec<_> = rules(&f, "css-presto").iter().map(|x| (x.line.unwrap(), x.col.unwrap())).collect();
-    assert_eq!(got, vec![(1, 12), (2, 10), (2, 36), (2, 58), (3, 12), (3, 38), (3, 59)], "{f:?}");
+    assert_eq!(got, vec![(1, 12), (2, 10), (2, 36), (2, 58), (3, 12), (3, 59), (7, 12), (7, 46)], "{f:?}");
 }
 
 #[test]
