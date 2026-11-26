@@ -23,5 +23,8 @@ installing a free copy). You may not sell it or offer a competing product; the r
 commercially distribute it is reserved to the project owner. This is source-available, not OSI
 "open source".
 
+The project templates in `templates/`, which `revised-sdk new` copies into your project, are
+under [MIT No Attribution](./templates/LICENSE). Your mod is yours: license it however you like.
+
 Contributions are welcome under the [Individual CLA](./CLA.md); see [CONTRIBUTING.md](./CONTRIBUTING.md). Do not submit OEM (Mazda/JCI) binaries, keys or
 PKI material: the repository is kept IP-clean.
