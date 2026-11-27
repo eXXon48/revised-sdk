@@ -8,6 +8,31 @@ use std::io::Read;
 use std::path::Path;
 
 pub const LIST: &str = include_str!("../../baseline/74.00.324A.md5");
+pub const PNG_SIZES: &str = include_str!("../../baseline/74.00.324A.png-sizes");
+pub const MODES: &str = include_str!("../../baseline/74.00.324A.modes");
+
+/// Is `path` a regular file of the stock baseline (an entry of the md5 list)?
+pub fn in_md5_list(path: &str) -> bool {
+    LIST.lines().filter_map(|l| l.split_once("  ")).any(|(_, p)| p == path)
+}
+
+/// Pixel size `(width, height)` of a stock PNG, from the published list.
+pub fn png_size(path: &str) -> Option<(u32, u32)> {
+    PNG_SIZES.lines().find_map(|l| {
+        let mut it = l.split(' ');
+        (it.next()? == path).then_some(())?;
+        Some((it.next()?.parse().ok()?, it.next()?.parse().ok()?))
+    })
+}
+
+/// `(mode, "uid:gid")` of a stock file, e.g. `("0644", "1000:1000")`.
+pub fn mode_of(path: &str) -> Option<(String, String)> {
+    MODES.lines().find_map(|l| {
+        let mut it = l.splitn(3, ' ');
+        let (m, o) = (it.next()?, it.next()?);
+        (it.next()? == path).then(|| (m.to_string(), o.to_string()))
+    })
+}
 
 fn md5_file(p: &Path) -> std::io::Result<String> {
     let mut f = std::fs::File::open(p)?;

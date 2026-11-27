@@ -120,3 +120,26 @@ fn local_roundtrip_keeps_unknown_keys() {
     assert_eq!(local::load(&d).unit_host.as_deref(), Some("new"));
     assert!(!tmp("nofile").join("x").exists() && local::load(&tmp("nofile")).baseline.is_none());
 }
+
+#[test]
+fn png_sizes_cover_every_png_in_the_md5_list() {
+    use revised_sdk::baseline::{png_size, LIST, PNG_SIZES};
+    let want = LIST.lines().filter(|l| l.ends_with(".png")).count();
+    assert_eq!(PNG_SIZES.lines().count(), want);
+    assert_eq!(png_size("/jci/gui/common/controls/List2/images/ListFocus.png"), Some((732, 64)));
+    assert_eq!(png_size("/nope.png"), None);
+}
+
+#[test]
+fn modes_paths_are_in_the_md5_list() {
+    use revised_sdk::baseline::{in_md5_list, mode_of, MODES};
+    for l in MODES.lines() {
+        let path = l.splitn(3, ' ').nth(2).unwrap();
+        assert!(in_md5_list(path), "{path}");
+    }
+    let (mode, owner) = mode_of("/jci/gui/common/controls/List2/images/ListFocus.png").unwrap();
+    assert!(mode.len() == 4 && mode.bytes().all(|b| (b'0'..=b'7').contains(&b)), "{mode}");
+    assert!(owner.contains(':'));
+    assert!(in_md5_list("/jci/gui/common/controls/List2/images/ListFocus.png"));
+    assert!(!in_md5_list("/nope"));
+}
