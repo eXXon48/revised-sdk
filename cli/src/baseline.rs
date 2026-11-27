@@ -10,10 +10,17 @@ use std::path::Path;
 pub const LIST: &str = include_str!("../../baseline/74.00.324A.md5");
 pub const PNG_SIZES: &str = include_str!("../../baseline/74.00.324A.png-sizes");
 pub const MODES: &str = include_str!("../../baseline/74.00.324A.modes");
+/// `<target> <link>` per line; a relative target is relative to the link's directory.
+pub const LINKS: &str = include_str!("../../baseline/74.00.324A.links");
 
 /// Is `path` a regular file of the stock baseline (an entry of the md5 list)?
 pub fn in_md5_list(path: &str) -> bool {
-    LIST.lines().filter_map(|l| l.split_once("  ")).any(|(_, p)| p == path)
+    in_md5(LIST, path)
+}
+
+/// Is `path` an entry of the md5 list `list` (`<md5>  <path>` lines)?
+pub fn in_md5(list: &str, path: &str) -> bool {
+    list.lines().filter_map(|l| l.split_once("  ")).any(|(_, p)| p == path)
 }
 
 /// Pixel size `(width, height)` of a stock PNG, from the published list.

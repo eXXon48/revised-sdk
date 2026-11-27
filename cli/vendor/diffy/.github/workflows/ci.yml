@@ -1,0 +1,106 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  CLICOLOR: 1
+  CI: 1
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta, nightly, 1.85.0]
+
+    steps:
+      - uses: actions/checkout@v6
+      - run: rustup toolchain install ${{ matrix.rust }} --profile minimal
+      - run: cargo +${{ matrix.rust }} check --all-targets --all-features
+      - run: cargo +${{ matrix.rust }} test --all-features
+      - run: make is-dirty
+
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v6
+      - run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+      - run: make check-fmt
+      - run: make clippy
+      - run: make doc
+      - run: make is-dirty
+
+  check-features:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: rust version
+        run: |
+          rustc --version
+          cargo --version
+      - uses: taiki-e/install-action@cargo-hack
+      - run: make check-features
+
+  no-std:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup target add aarch64-unknown-none
+      - uses: taiki-e/install-action@cargo-hack
+      # Build against a bare-metal target that has no `std` crate,
+      # so any accidental reliance on `std` fails to link. `--skip std`
+      # excludes the `std` feature from the powerset since enabling it
+      # intentionally opts back into the `std` crate.
+      - run: make check-no-std
+
+  semver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+
+  replay:
+    strategy:
+      matrix:
+        include:
+          - name: diffy
+            repo_url: ''
+            commits: '0'
+          - name: golang/go
+            repo_url: https://github.com/golang/go
+            commits: '2000'
+          - name: git/git
+            repo_url: https://github.com/git/git
+            commits: '1000'
+          - name: rust-lang/rust
+            repo_url: https://github.com/rust-lang/rust
+            commits: '50'
+          - name: torvalds/linux
+            repo_url: https://github.com/torvalds/linux
+            commits: '40'
+          - name: llvm/llvm-project
+            repo_url: https://github.com/llvm/llvm-project
+            commits: '50'
+    name: replay (${{ matrix.name }})
+    uses: ./.github/workflows/replay.yml
+    with:
+      name: ${{ matrix.name }}
+      repo_url: ${{ matrix.repo_url }}
+      commits: ${{ matrix.commits }}

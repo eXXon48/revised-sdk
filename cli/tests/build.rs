@@ -165,6 +165,8 @@ fn build_refuses_changes_for_now() {
     let y = std::fs::read_to_string(proj.join("mod.yaml")).unwrap();
     let chg = "changes:\n  - live: /jci/gui/index.html\n    file: stock/index.html\n    apply: whole-file\n    reason: new skin\n";
     std::fs::write(proj.join("mod.yaml"), y.replace("changes: []\n", chg)).unwrap();
+    std::fs::create_dir_all(proj.join("stock")).unwrap();
+    std::fs::write(proj.join("stock/index.html"), "<p>skin</p>\n").unwrap();
     let f = build(&proj).unwrap_err();
     assert_eq!(f[0].rule, "changes-unsupported", "{:?}", f[0].msg);
 }

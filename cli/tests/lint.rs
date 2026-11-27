@@ -1,4 +1,5 @@
-use revised_sdk::lint::run;
+use revised_sdk::lint::{changes, run};
+use revised_sdk::modyaml::{Change, ChangeApply};
 use revised_sdk::new::new_project;
 use revised_sdk::report::{Finding, Level};
 use std::path::{Path, PathBuf};
@@ -201,4 +202,117 @@ fn page_reload_is_an_error() {
     }
     let (_, f) = js("reload-neg", "var reload = 1; o.reloadAll(); var r = x.reload; // location.reload()");
     assert!(f.is_empty(), "{f:?}");
+}
+
+// Stock-file changes. The fixture holds only our own bytes: generated PNGs, diffs and a
+// made-up stock CSS under a fake baseline dir, listed in a test-only md5 list.
+const FOCUS: &str = "/jci/gui/apps/xmdata/controls/xmdataList2/images/ListFocus.png";
+const CSS: &str = "/jci/gui/common/css/x.css";
+
+fn fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/skin-changes")
+}
+
+fn change(live: &str, file: &str, apply: ChangeApply) -> Change {
+    Change { live: live.into(), file: file.into(), apply, reason: "test".into() }
+}
+
+fn chk(c: &[Change], with_baseline: bool) -> Vec<Finding> {
+    let fx = fixture();
+    let md5 = std::fs::read_to_string(fx.join("md5.txt")).unwrap();
+    let b = fx.join("baseline");
+    changes::check(&fx, c, with_baseline.then_some(b.as_path()), &md5)
+}
+
+#[test]
+fn changes_clean_project_has_no_findings() {
+    let f = chk(
+        &[change(FOCUS, "changes/focus.png", ChangeApply::WholeFile), change(CSS, "changes/clean.css.diff", ChangeApply::ThreeWay)],
+        true,
+    );
+    assert!(f.is_empty(), "{f:?}");
+}
+
+#[test]
+fn changes_stock_path() {
+    let f = chk(&[change("/jci/gui/nope.css", "changes/clean.css.diff", ChangeApply::ThreeWay)], true);
+    assert_eq!(rules(&f, "stock-path").len(), 1, "{f:?}");
+    assert_eq!(f[0].level, Level::Error);
+    for live in ["/", "/jci/gui/../gui/common/css/x.css", "/jci/.."] {
+        let f = chk(&[change(live, "changes/clean.css.diff", ChangeApply::ThreeWay)], true);
+        assert_eq!(rules(&f, "stock-path").len(), 1, "{live}: {f:?}");
+    }
+}
+
+#[test]
+fn changes_symlink_names_the_target() {
+    for (live, target) in [
+        ("/jci/bin/bds", "/jci/bds/bds"),
+        ("/etc/network/if-post-down.d/wpa-supplicant", "/etc/network/if-pre-up.d/wpa-supplicant"),
+    ] {
+        let f = chk(&[change(live, "changes/clean.css.diff", ChangeApply::ThreeWay)], true);
+        let h = rules(&f, "stock-path");
+        assert_eq!(h.len(), 1, "{live}: {f:?}");
+        assert!(h[0].msg.contains("is a symlink; use") && h[0].msg.contains(target), "{:?}", h[0]);
+    }
+}
+
+#[test]
+fn changes_missing_file() {
+    let f = chk(&[change(FOCUS, "changes/absent.png", ChangeApply::WholeFile)], true);
+    assert_eq!(rules(&f, "change-missing").len(), 1, "{f:?}");
+}
+
+#[test]
+fn changes_png_size_and_format() {
+    let f = chk(&[change(FOCUS, "changes/small.png", ChangeApply::WholeFile)], true);
+    let h = rules(&f, "png-size");
+    assert_eq!(h.len(), 1, "{f:?}");
+    assert_eq!(h[0].msg, format!("changes/small.png is 10x10, stock {FOCUS} is 732x64"));
+    let f = chk(&[change(FOCUS, "changes/notpng.png", ChangeApply::WholeFile)], true);
+    assert_eq!(rules(&f, "png-format").len(), 1, "{f:?}");
+}
+
+#[test]
+fn changes_diff_apply() {
+    for d in ["changes/stale.css.diff", "changes/notpng.png"] {
+        let f = chk(&[change(CSS, d, ChangeApply::ThreeWay)], true);
+        assert_eq!(rules(&f, "diff-apply").len(), 1, "{d}: {f:?}");
+    }
+}
+
+/// Line endings are not normalized: a CRLF diff does not apply to an LF stock file.
+#[test]
+fn changes_crlf_diff_does_not_apply_to_lf_stock() {
+    let f = chk(&[change(CSS, "changes/crlf.css.diff", ChangeApply::ThreeWay)], true);
+    assert_eq!(rules(&f, "diff-apply").len(), 1, "{f:?}");
+}
+
+#[test]
+fn changes_no_baseline_warns() {
+    let f = chk(&[change(CSS, "changes/clean.css.diff", ChangeApply::ThreeWay)], false);
+    let h = rules(&f, "no-baseline");
+    assert_eq!((h.len(), f.len()), (1, 1), "{f:?}");
+    assert_eq!(h[0].level, Level::Warning);
+}
+
+#[test]
+fn changes_css_diff_added_lines_use_diff_line_numbers() {
+    let f = chk(&[change(CSS, "changes/flex.css.diff", ChangeApply::ThreeWay)], true);
+    let h = rules(&f, "css-presto");
+    assert_eq!(h.len(), 1, "{f:?}");
+    assert_eq!((h[0].file.as_deref(), h[0].line, h[0].col), (Some("changes/flex.css.diff"), Some(6), Some(6)));
+}
+
+#[test]
+fn run_checks_changes() {
+    let p = proj("changes");
+    let y = std::fs::read_to_string(p.join("mod.yaml")).unwrap().replace(
+        "changes: []",
+        &format!("changes:\n  - live: {FOCUS}\n    file: changes/absent.png\n    apply: whole-file\n    reason: r\n  - live: /jci/gui/common/css/common.css\n    file: changes/absent.diff\n    apply: three-way\n    reason: r\n"),
+    );
+    put(&p, "mod.yaml", y);
+    let f = run(&p);
+    assert_eq!(rules(&f, "change-missing").len(), 2, "{f:?}");
+    assert_eq!(rules(&f, "no-baseline").len(), 1, "{f:?}");
 }

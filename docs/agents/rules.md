@@ -16,7 +16,7 @@ Every finding has a `rule` id, a `level` (`error` or `warning`), and `file`, `li
 | Rule | Level | Meaning |
 |---|---|---|
 | `es5-syntax` | error | JavaScript that is not ES5, or a `.reload(` call (reloading the HMI page reboots the unit). The message names the replacement. |
-| `css-presto` | error | CSS (or an inline `style=""`) that Presto does not support. |
+| `css-presto` | error | CSS (or an inline `style=""`, or a line a `three-way` diff of a `.css` file adds) that Presto does not support. Positions in a diff are the diff's own lines. |
 | `ws-literal-port` | warning | A hard-coded `ws://127.0.0.1:<port>` or `ws://localhost:<port>`. Take the endpoint from the HMI framework. |
 | `hmi-handwritten` | warning | `ui/hmi.json` exists. `build` generates it and overwrites your copy. |
 | `register-key` | error | No `RevisedHMI.register("<name>/...")` call in `ui/**/*.js`. The key must start with the `name` from `mod.yaml` plus `/`. |
@@ -31,6 +31,12 @@ Every finding has a `rule` id, a `level` (`error` or `warning`), and `file`, `li
 | `change-live` | error | A change's `live` is not an absolute path on the unit. |
 | `change-file` | error | A change's `file` is empty or absolute, contains a backslash, has an empty, `.` or `..` segment, or starts with the `ui` segment. |
 | `change-reason` | error | A change's `reason` is empty. |
+| `stock-path` | error | A change's `live` is not a regular file of the stock baseline list, is `/` or has a `..` segment. For a symlink, the message names the target to change instead. |
+| `change-missing` | error | A change's `file` does not exist in the project. |
+| `png-size` | error | A whole-file PNG has a different pixel size than the stock PNG it replaces. |
+| `png-format` | error | A whole-file change of a `.png` is not a PNG file. |
+| `diff-apply` | error | A `three-way` diff does not apply to the stock file in the local baseline directory. Line endings are compared as they are. |
+| `no-baseline` | warning | No local baseline directory is recorded, so `three-way` diffs were not applied. Record one with `baseline check`. |
 | `native-phase2` | error | `native:` is set. Native backends are not supported yet. |
 
 Other commands report these ids:

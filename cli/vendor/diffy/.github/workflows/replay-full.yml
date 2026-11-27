@@ -1,0 +1,29 @@
+name: Replay (Full History)
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  replay-full:
+    strategy:
+      matrix:
+        include:
+          - name: rust-lang/rust-analyzer
+            repo_url: https://github.com/rust-lang/rust-analyzer
+          - name: neovim/neovim
+            repo_url: https://github.com/neovim/neovim
+          - name: fish-shell/fish-shell
+            repo_url: https://github.com/fish-shell/fish-shell
+          - name: libgit2/libgit2
+            repo_url: https://github.com/libgit2/libgit2
+    name: ${{ matrix.name }}
+    uses: ./.github/workflows/replay.yml
+    with:
+      name: ${{ matrix.name }}
+      repo_url: ${{ matrix.repo_url }}
+      commits: '0'

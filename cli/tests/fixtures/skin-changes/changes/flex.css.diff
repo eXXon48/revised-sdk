@@ -1,0 +1,7 @@
+--- a/x.css
++++ b/x.css
+@@ -4,3 +4,4 @@
+ .sample-b {
+     width: 100px;
++    display: flex;
+ }
