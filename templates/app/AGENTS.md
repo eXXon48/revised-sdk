@@ -30,7 +30,11 @@ Every finding has a `rule` id, a `level` (`error` or `warning`), and `file`, `li
 | `name` | error | `name` (or the `new` argument) is not `[a-z0-9][a-z0-9-]*`, at most 32 characters. |
 | `version` | error | `version` uses characters outside `[0-9A-Za-z.+-]`, is longer than 64, starts with `.` or `-`, or contains `..`. |
 | `target-cmu` | error | `targetCMU` is not `74.00.324A`, the only supported firmware. |
-| `changes-phase2` | error | `changes:` is not empty. System-mod edits are not supported yet. |
+| `no-app` | error | `mod.yaml` has neither an `app:` block nor a `changes:` list. |
+| `category` | error | `category` is not `Apps`, `Skins` or `System mods`. Without it, the category is `Apps` for a project with an app and `System mods` otherwise. |
+| `change-live` | error | A change's `live` is not an absolute path on the unit. |
+| `change-file` | error | A change's `file` is empty, absolute, under `ui/`, or contains `..`. |
+| `change-reason` | error | A change's `reason` is empty. |
 | `native-phase2` | error | `native:` is set. Native backends are not supported yet. |
 
 Other commands report these ids:
@@ -38,6 +42,7 @@ Other commands report these ids:
 | Rule | Level | Command | Meaning |
 |---|---|---|---|
 | `no-app` | error | `build` | `mod.yaml` has no `app:` block. |
+| `changes-unsupported` | error | `build` | `mod.yaml` lists `changes:`. Building them is not supported yet. |
 | `rows` | error | `build` | `app.rows` is empty. |
 | `entry` | error | `build` | `app.entry` is not a path under `ui/`. |
 | `entry-missing` | error | `build` | `app.entry` does not exist. |

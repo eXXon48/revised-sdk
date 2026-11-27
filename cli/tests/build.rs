@@ -158,3 +158,13 @@ fn build_rejects_empty_rows_without_background() {
     set_rows(&proj, "[]", false);
     assert_eq!(build(&proj).unwrap_err()[0].rule, "rows");
 }
+
+#[test]
+fn build_refuses_changes_for_now() {
+    let proj = new_project(&tmp("chg"), "app", "t7").unwrap();
+    let y = std::fs::read_to_string(proj.join("mod.yaml")).unwrap();
+    let chg = "changes:\n  - live: /jci/gui/index.html\n    file: stock/index.html\n    apply: whole-file\n    reason: new skin\n";
+    std::fs::write(proj.join("mod.yaml"), y.replace("changes: []\n", chg)).unwrap();
+    let f = build(&proj).unwrap_err();
+    assert_eq!(f[0].rule, "changes-unsupported", "{:?}", f[0].msg);
+}

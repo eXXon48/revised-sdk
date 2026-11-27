@@ -1,5 +1,5 @@
 use revised_sdk::build::hmi_entries;
-use revised_sdk::modyaml::parse;
+use revised_sdk::modyaml::{parse, ChangeApply};
 use serde_json::json;
 
 fn yaml(extra: &str) -> String {
@@ -44,11 +44,55 @@ fn refuse_target_cmu() {
     assert!(r[0].1.contains("74.00.324A"), "{}", r[0].1);
 }
 
+const SKIN: &str = "changes:\n  - live: /jci/gui/index.html\n    file: stock/index.html\n    apply: whole-file\n    reason: new skin\n";
+
 #[test]
-fn refuse_changes_phase2() {
-    let r = rules(&yaml("changes:\n  - new-file: www/index.html\n"));
-    assert_eq!(r[0].0, "changes-phase2");
-    assert!(parse(&yaml("changes: []\n")).is_ok());
+fn skin_only_parses() {
+    let m = parse(&yaml(SKIN)).unwrap();
+    assert!(m.app.is_none());
+    assert_eq!(m.changes.len(), 1);
+    assert_eq!((m.changes[0].live.as_str(), m.changes[0].file.as_str()), ("/jci/gui/index.html", "stock/index.html"));
+    assert_eq!(m.changes[0].apply, ChangeApply::WholeFile);
+    assert_eq!(m.changes[0].reason, "new skin");
+    assert_eq!(m.category(), "System mods");
+}
+
+#[test]
+fn category_default_and_explicit() {
+    let m = parse(&yaml("app:\n  title: T\n  entry: ui/main.js\n  rows: [apps]\n")).unwrap();
+    assert_eq!(m.category(), "Apps");
+    let m = parse(&yaml(&format!("category: Skins\n{SKIN}"))).unwrap();
+    assert_eq!(m.category(), "Skins");
+    let m = parse(&yaml(&format!("category: System mods\n{SKIN}"))).unwrap();
+    assert_eq!(m.category(), "System mods");
+    assert_eq!(rules(&yaml(&format!("category: Themes\n{SKIN}")))[0].0, "category");
+}
+
+#[test]
+fn no_app_and_no_changes() {
+    assert_eq!(rules(&yaml(""))[0].0, "no-app");
+    assert_eq!(rules(&yaml("changes: []\n"))[0].0, "no-app");
+}
+
+#[test]
+fn change_shape_rules() {
+    let one = |live: &str, file: &str, reason: &str| {
+        let y = format!("changes:\n  - live: \"{live}\"\n    file: \"{file}\"\n    apply: three-way\n    reason: \"{reason}\"\n");
+        parse(&yaml(&y)).map(|m| m.changes[0].apply).map_err(|e| e[0].rule.clone())
+    };
+    assert_eq!(one("/jci/x", "stock/x", "r"), Ok(ChangeApply::ThreeWay));
+    assert_eq!(one("jci/x", "stock/x", "r"), Err("change-live".into()));
+    for f in ["ui/x", "ui", "a/../b", "/abs", ""] {
+        assert_eq!(one("/jci/x", f, "r"), Err("change-file".into()), "{f}");
+    }
+    assert_eq!(one("/jci/x", "stock/x", " "), Err("change-reason".into()));
+}
+
+#[test]
+fn bad_apply_names_allowed_values() {
+    let r = rules(&yaml("changes:\n  - live: /a\n    file: b\n    apply: 3way\n    reason: r\n"));
+    assert_eq!(r[0].0, "mod-yaml");
+    assert!(r[0].1.contains("whole-file") && r[0].1.contains("three-way"), "{}", r[0].1);
 }
 
 #[test]
@@ -77,7 +121,7 @@ fn bad_name_and_version_are_rejected() {
     for v in ["1/../../x", "1.0 beta", "1;rm", "1\\\"2", "$(x)", "..", "1..2", ".1", "-1", "", "1/2"] {
         bad("ok", v, "version");
     }
-    let t = "name: ok\nversion: 1.0.0-rc.1+b2\ntargetCMU: \"74.00.324A\"\n";
+    let t = "name: ok\nversion: 1.0.0-rc.1+b2\ntargetCMU: \"74.00.324A\"\napp:\n  title: T\n  entry: ui/main.js\n  rows: [apps]\n";
     assert!(parse(t).is_ok());
 }
 

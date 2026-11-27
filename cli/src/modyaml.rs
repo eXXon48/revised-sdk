@@ -23,6 +23,26 @@ pub struct App {
     pub background: bool,
 }
 
+/// How a change is applied to the stock file on the unit.
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ChangeApply {
+    WholeFile,
+    ThreeWay,
+}
+
+/// One edit to a stock file: `file` (project path) replaces or patches `live` (absolute path on the unit).
+#[derive(Deserialize, Clone, Debug)]
+pub struct Change {
+    pub live: String,
+    pub file: String,
+    pub apply: ChangeApply,
+    pub reason: String,
+}
+
+/// Catalog categories a package may declare.
+pub const CATEGORIES: [&str; 3] = ["Apps", "Skins", "System mods"];
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct ModYaml {
     pub name: String,
@@ -34,9 +54,22 @@ pub struct ModYaml {
     #[serde(default)]
     pub permissions: Vec<String>,
     #[serde(default)]
-    pub changes: Vec<Value>,
+    pub changes: Vec<Change>,
+    /// Catalog category; see [`ModYaml::category`] for the default.
+    pub category: Option<String>,
     /// Package settings, copied as is into the manifest's `config` (the package checks validate it).
     pub config: Option<serde_json::Value>,
+}
+
+impl ModYaml {
+    /// The declared category, or `Apps` for a project with an app and `System mods` without.
+    pub fn category(&self) -> &str {
+        match &self.category {
+            Some(c) => c,
+            None if self.app.is_some() => "Apps",
+            None => "System mods",
+        }
+    }
 }
 
 /// Project names are package names and HMI ids: `[a-z0-9][a-z0-9-]{0,31}`.
@@ -54,7 +87,7 @@ pub fn valid_version(v: &str) -> bool {
         && v.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'+' | b'-'))
 }
 
-/// Parse and validate. Phase 1 refuses `native:` and non-empty `changes:`.
+/// Parse and validate the shape. Phase 1 refuses `native:`.
 pub fn parse(text: &str) -> Result<ModYaml, Vec<Finding>> {
     let m: ModYaml = serde_yaml::from_str(text).map_err(|e| {
         let f = Finding::error("mod-yaml", &e.to_string());
@@ -82,8 +115,28 @@ pub fn parse(text: &str) -> Result<ModYaml, Vec<Finding>> {
     if m.native.is_some() {
         errs.push(Finding::error("native-phase2", "`native:` backends are not supported yet (SDK phase 2)"));
     }
-    if !m.changes.is_empty() {
-        errs.push(Finding::error("changes-phase2", "`changes:` system-mod edits are not supported yet (SDK phase 2)"));
+    if m.app.is_none() && m.changes.is_empty() {
+        errs.push(Finding::error("no-app", "mod.yaml needs an `app:` block, a `changes:` list, or both"));
+    }
+    if let Some(c) = &m.category {
+        if !CATEGORIES.contains(&c.as_str()) {
+            errs.push(Finding::error("category", &format!("category {c:?} is not supported; use one of {CATEGORIES:?}")));
+        }
+    }
+    for (i, c) in m.changes.iter().enumerate() {
+        if !c.live.starts_with('/') {
+            errs.push(Finding::error("change-live", &format!("changes[{i}].live {:?} must be an absolute path on the unit", c.live)));
+        }
+        let f = &c.file;
+        if f.is_empty() || f.starts_with('/') || f.contains("..") || f == "ui" || f.starts_with("ui/") {
+            errs.push(Finding::error(
+                "change-file",
+                &format!("changes[{i}].file {f:?} must be a relative project path outside ui/, without `..`"),
+            ));
+        }
+        if c.reason.trim().is_empty() {
+            errs.push(Finding::error("change-reason", &format!("changes[{i}].reason is empty: say why the stock file is changed")));
+        }
     }
     if errs.is_empty() {
         Ok(m)

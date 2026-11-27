@@ -55,6 +55,9 @@ pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
     }
     let m = modyaml::load(dir)?;
     let err =|rule: &str, msg: String| vec![Finding::error(rule, &msg)];
+    if !m.changes.is_empty() {
+        return Err(err("changes-unsupported", "building packages with `changes:` is not supported yet".into()));
+    }
     let Some(app) = &m.app else {
         return Err(err("no-app", "mod.yaml has no `app:` block; nothing to build".into()));
     };
@@ -98,9 +101,9 @@ pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
         entries.push(json!({"live": format!("ui/{f}"), "payload": format!("payload/ui/{f}"),
             "mode": "0644", "owner": "1000:1000", "type": "new", "apply": "whole-file"}));
     }
-    // note: author/category/minDaemon are fixed until mod.yaml grows those keys.
+    // note: author/minDaemon are fixed until mod.yaml grows those keys.
     let mut manifest = json!({"formatVersion": 1, "name": m.name, "version": m.version, "author": "unknown",
-        "targetCMU": m.target_cmu, "category": "Apps", "description": app.title, "minDaemon": "0.1.0",
+        "targetCMU": m.target_cmu, "category": m.category(), "description": app.title, "minDaemon": "0.1.0",
         "depends": "", "conflicts": "", "files": entries});
     if let Some(c) = &m.config {
         manifest["config"] = c.clone();
