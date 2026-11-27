@@ -1,6 +1,6 @@
 ## Skins
 
-A skin is a package with `category: Skins` and no app. It changes stock HMI files through `changes:` in `mod.yaml`. Start from the template: `revised-sdk new skin myskin`. It replaces the screen background (`/jci/gui/common/images/background.png`, a whole-file PNG) and changes the list item text colour in `/jci/gui/common/controls/List2/css/List2Ctrl.css` (a three-way diff).
+A skin is a package with `category: Skins` and no app. It changes stock HMI files through `changes:` in `mod.yaml`. Start from the template: `revised-sdk new skin myskin`. It replaces the screen background (`/jci/gui/common/images/background.png`, a whole-file PNG) and, with a three-way diff of `/jci/gui/common/controls/List2/css/List2Ctrl.css`, changes the colour of the first text line of `style01` list items only. Other list styles keep their colour: for example, the FM station rows use `style06` and stay white. Each list style has its own rule in that file, so each style you want to change needs its own hunk in the diff.
 
 ### Ownership and switching
 
@@ -8,7 +8,7 @@ A package owns the stock files it replaces whole-file. Installing a skin that re
 
 ### PNG size
 
-A whole-file PNG must have the exact pixel size of the stock PNG it replaces (`png-size`). Get the size from the published list:
+A whole-file PNG must have the exact pixel size of the stock PNG it replaces (lint rule `png-size`). Get the size from the published list:
 
 ```sh
 revised-sdk baseline png-size /jci/gui/common/images/background.png     # prints: 800 480
@@ -17,6 +17,8 @@ revised-sdk baseline png-size /jci/gui/common/images/background.png     # prints
 ### CSS is a diff, never a full file
 
 Change a stock CSS file with a `three-way` unified diff, never with a whole-file copy. The diff carries only your changed lines and the few context lines the unified format needs to place them. Context lines are short fragments of the stock file, never the whole file. A full copy of a stock file is stock content, and a package never carries stock content. A diff also applies on top of the stock file the unit has, so it keeps working next to other changes. Lint checks the lines the diff adds against the CSS rules and, with a local baseline, applies the diff to the stock file (`diff-apply`).
+
+Without a recorded baseline, `lint` and `build` do not apply diffs: they only warn (`no-baseline`), and a diff that does not fit the stock file is found only when the package is installed. Record a baseline with `baseline check` and run `lint` and `build` with it before you publish.
 
 ### Asset workflow
 

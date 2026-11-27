@@ -172,3 +172,16 @@ fn guide_documents_every_command_it_uses() {
         assert!(g.contains(&format!("| `{used}")), "guide uses `revised-sdk {used}` but has no Commands row for it");
     }
 }
+
+/// The skin docs say exactly what the template diff changes, and that diffs need a baseline.
+#[test]
+fn skin_docs_match_the_template() {
+    let guide = read("docs/agents/skins.md");
+    for (rel, text) in [("docs/agents/skins.md", &guide), ("templates/skin/README.md", &read("templates/skin/README.md"))] {
+        assert!(!text.contains("list item text colour"), "{rel}: overclaims the list change");
+        assert!(text.contains("`style01`"), "{rel}: does not name the list style the diff changes");
+    }
+    assert!(guide.contains("its own hunk"), "skins.md: no note that each list style needs its own hunk");
+    assert!(guide.contains("lint rule `png-size`"), "skins.md: bare png-size rule id");
+    assert!(guide.contains("Without a recorded baseline"), "skins.md: no note that diffs need a baseline");
+}
