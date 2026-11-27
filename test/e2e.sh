@@ -5,7 +5,7 @@
 # (it passes --accept-opera-license to `preview up`).
 # Usage: REVISED_SDK=/path/to/revised-sdk sh test/e2e.sh   (default: revised-sdk on PATH)
 # Stock leg (`preview up --stock`): set REVISED_BASELINE to an extracted stock rootfs (POSIX file
-# system); its screenshots home.png, ent.png, list.png go to REVISED_SHOTS (default: a temp dir
+# system); its screenshots home.png, ent.png, list.png, skin-home.png go to REVISED_SHOTS (default: a temp dir
 # that is removed). REVISED_ENGINE = the engine binary used to inspect the container (podman).
 sdk=${REVISED_SDK:-revised-sdk}
 tmp=$(mktemp -d) || exit 2
@@ -81,6 +81,20 @@ else
   out=$("$sdk" preview ctx fmradio ../x --json) && { echo "$out" >&2; exit 1; }
   has 'letters, digits or _'
   cp home.png ent.png list.png "$shots"/ || exit 1
+  # the skin template against the real stock files: its diff applies, and preview installs both changes
+  cd "$tmp/e2e-skin" || exit 2
+  run skin-baseline "$sdk" baseline check "$REVISED_BASELINE" --json; has '"ok": *true'
+  run skin-lint-stock "$sdk" lint --json; has '"ok": *true'
+  step=skin-lint-applied; echo "$out" | grep -q no-baseline && { echo "$out" >&2; exit 1; }
+  run skin-up "$sdk" preview up --accept-opera-license --stock --json; has '"ok": *true'
+  step=skin-png
+  want=$(md5sum skin/background.png | cut -d' ' -f1)
+  got=$("$engine" exec revised-sdk-preview md5sum /jci/gui/common/images/background.png | cut -d' ' -f1)
+  [ -n "$want" ] && [ "$got" = "$want" ] || { echo "background.png md5 $got, want $want" >&2; exit 1; }
+  step=skin-css; "$engine" exec revised-sdk-preview grep -q 'color: #E0E0E0;' /jci/gui/common/controls/List2/css/List2Ctrl.css || exit 1
+  run skin-home "$sdk" preview eval 'framework.getCurrCtxtId()' --json; has '"result": *"HomeScreen"'
+  run shot-skin-home "$sdk" preview shot skin-home.png --json; has '"ok": *true'
+  cp skin-home.png "$shots"/ || exit 1
   run stock-down "$sdk" preview down --json; has '"ok": *true'
   echo "stock leg: screenshots in $shots"
 fi
