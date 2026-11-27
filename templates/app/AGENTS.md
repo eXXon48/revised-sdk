@@ -39,6 +39,7 @@ Every finding has a `rule` id, a `level` (`error` or `warning`), and `file`, `li
 | `change-missing` | error | A change's `file` does not exist in the project. |
 | `png-size` | error | A whole-file PNG has a different pixel size than the stock PNG it replaces. |
 | `png-format` | error | A whole-file change of a `.png` is not a PNG file. |
+| `whole-file-text` | warning | A `whole-file` change replaces a `.css`, `.js` or `.html` stock file. A full copy carries stock content: ship only the changed lines as a `three-way` diff. |
 | `diff-apply` | error | A `three-way` diff does not apply to the stock file in the local baseline directory. Line endings are compared as they are. |
 | `no-baseline` | warning | No local baseline directory is recorded, so `three-way` diffs were not applied. Record one with `baseline check`. |
 | `native-phase2` | error | `native:` is set. Native backends are not supported yet. |

@@ -289,6 +289,21 @@ fn changes_crlf_diff_does_not_apply_to_lf_stock() {
 }
 
 #[test]
+fn changes_whole_file_text_warns() {
+    let fx = fixture();
+    let md5 = "0123456789abcdef0123456789abcdef  /jci/gui/a.css\n\
+               0123456789abcdef0123456789abcdef  /jci/gui/a.js\n\
+               0123456789abcdef0123456789abcdef  /jci/gui/a.html\n";
+    for live in ["/jci/gui/a.css", "/jci/gui/a.js", "/jci/gui/a.html"] {
+        let f = changes::check(&fx, &[change(live, "changes/clean.css.diff", ChangeApply::WholeFile)], None, md5);
+        let h = rules(&f, "whole-file-text");
+        assert_eq!((h.len(), f.len()), (1, 1), "{live}: {f:?}");
+        assert_eq!(h[0].level, Level::Warning);
+        assert!(h[0].msg.contains(live) && h[0].msg.contains("three-way"), "{}", h[0].msg);
+    }
+}
+
+#[test]
 fn changes_no_baseline_warns() {
     let f = chk(&[change(CSS, "changes/clean.css.diff", ChangeApply::ThreeWay)], false);
     let h = rules(&f, "no-baseline");

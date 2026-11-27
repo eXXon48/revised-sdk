@@ -105,6 +105,13 @@ pub fn check(dir: &Path, changes: &[Change], base: Option<&Path>, md5: &str) -> 
                     }
                 }
             },
+            ChangeApply::WholeFile if [".css", ".js", ".html"].iter().any(|x| c.live.ends_with(x)) => out.push(Finding {
+                file: Some(c.file.clone()),
+                ..Finding::warning(
+                    "whole-file-text",
+                    &format!("{} replaces the whole text file {}: ship only the changed lines with `apply: three-way`", c.file, c.live),
+                )
+            }),
             ChangeApply::WholeFile => {}
             ChangeApply::ThreeWay => {
                 if c.live.ends_with(".css") {
