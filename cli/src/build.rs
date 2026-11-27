@@ -1,5 +1,6 @@
-//! `revised-sdk build`: `mod.yaml` + `ui/**` -> `dist/<name>-<version>.rvp` (unsigned).
-use crate::modyaml::{self, ModYaml, Row};
+//! `revised-sdk build`: `mod.yaml` + `ui/**` + `changes:` files -> `dist/<name>-<version>.rvp` (unsigned).
+use crate::baseline;
+use crate::modyaml::{self, App, ChangeApply, ModYaml, Row};
 use crate::report::Finding;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -48,19 +49,10 @@ fn walk(dir: &Path, rel: &str, out: &mut Vec<String>) -> Result<(), Vec<Finding>
     Ok(())
 }
 
-pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
-    let found = crate::lint::run(dir);
-    if crate::lint::has_errors(&found) {
-        return Err(found);
-    }
-    let m = modyaml::load(dir)?;
-    let err =|rule: &str, msg: String| vec![Finding::error(rule, &msg)];
-    if !m.changes.is_empty() {
-        return Err(err("changes-unsupported", "building packages with `changes:` is not supported yet".into()));
-    }
-    let Some(app) = &m.app else {
-        return Err(err("no-app", "mod.yaml has no `app:` block; nothing to build".into()));
-    };
+/// Checks the `app:` block, stages `payload/ui/**` (hmi.json always regenerated) and adds
+/// one jailed `new` entry per file.
+fn app_entries(dir: &Path, m: &ModYaml, app: &App, stage: &Path, entries: &mut Vec<Value>) -> Result<(), Vec<Finding>> {
+    let err = |rule: &str, msg: String| vec![Finding::error(rule, &msg)];
     if app.rows.is_empty() && !app.background {
         return Err(err("rows", "`app.rows` is empty: list apps and/or entertainment, or set background: true".into()));
     }
@@ -71,27 +63,22 @@ pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
     if !dir.join("ui").join(main).is_file() {
         return Err(err("entry-missing", format!("app.entry {} does not exist", app.entry)));
     }
-    let hmi = hmi_entries(&m);
+    let hmi = hmi_entries(m);
     for e in hmi["entries"].as_array().into_iter().flatten() {
         let id = e["id"].as_str().unwrap_or("");
         if id.len() > 32 {
             return Err(err("hmi-id", format!("HMI id {id:?} is longer than 32 chars: shorten `name`")));
         }
     }
-
-    // stage: manifest.json + payload/ui/** (hmi.json always regenerated)
-    let stage = dir.join(".revised").join("stage");
-    let _ = std::fs::remove_dir_all(&stage);
     let ui = dir.join("ui");
     let mut files = Vec::new();
     walk(&ui, "", &mut files)?;
     files.retain(|f| f != "hmi.json");
     files.push("hmi.json".into());
     files.sort();
-    let mut entries = Vec::new();
     for f in &files {
         let dst = stage.join("payload/ui").join(f);
-        std::fs::create_dir_all(dst.parent().unwrap_or(&stage)).map_err(|e| io(&dst, e))?;
+        std::fs::create_dir_all(dst.parent().unwrap_or(stage)).map_err(|e| io(&dst, e))?;
         if f == "hmi.json" {
             let text = serde_json::to_vec(&hmi).expect("json serializes");
             std::fs::write(&dst, text).map_err(|e| io(&dst, e))?;
@@ -101,10 +88,48 @@ pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
         entries.push(json!({"live": format!("ui/{f}"), "payload": format!("payload/ui/{f}"),
             "mode": "0644", "owner": "1000:1000", "type": "new", "apply": "whole-file"}));
     }
+    Ok(())
+}
+
+pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
+    let found = crate::lint::run(dir);
+    if crate::lint::has_errors(&found) {
+        return Err(found);
+    }
+    let m = modyaml::load(dir)?;
+    let err = |rule: &str, msg: String| vec![Finding::error(rule, &msg)];
+    let stage = dir.join(".revised").join("stage");
+    let _ = std::fs::remove_dir_all(&stage);
+    let mut entries = Vec::new();
+    // `parse` refuses a project with neither an app nor changes.
+    if let Some(app) = &m.app {
+        app_entries(dir, &m, app, &stage, &mut entries)?;
+    }
+    for c in &m.changes {
+        // lint already refused a live outside the md5 list; never fall back to a default mode
+        let Some((mode, owner)) = baseline::mode_of(&c.live) else {
+            return Err(err("stock-path", format!("{} has no mode in the stock baseline list", c.live)));
+        };
+        let payload = format!("payload/stock{}", c.live);
+        let dst = stage.join(&payload);
+        std::fs::create_dir_all(dst.parent().unwrap_or(&stage)).map_err(|e| io(&dst, e))?;
+        std::fs::copy(dir.join(&c.file), &dst).map_err(|e| io(&dst, e))?;
+        let apply = match c.apply {
+            ChangeApply::WholeFile => "whole-file",
+            ChangeApply::ThreeWay => "3way",
+        };
+        entries.push(json!({"live": c.live, "payload": payload, "mode": mode, "owner": owner,
+            "type": "modify", "apply": apply, "reason": c.reason}));
+    }
+    let description = m.app.as_ref().map_or(&m.name, |a| &a.title);
     // note: author/minDaemon are fixed until mod.yaml grows those keys.
     let mut manifest = json!({"formatVersion": 1, "name": m.name, "version": m.version, "author": "unknown",
-        "targetCMU": m.target_cmu, "category": m.category(), "description": app.title, "minDaemon": "0.1.0",
+        "targetCMU": m.target_cmu, "category": m.category(), "description": description, "minDaemon": "0.1.0",
         "depends": "", "conflicts": "", "files": entries});
+    if !m.changes.is_empty() {
+        // the HMI reads stock files at start only
+        manifest["restart"] = true.into();
+    }
     if let Some(c) = &m.config {
         manifest["config"] = c.clone();
     }
@@ -113,8 +138,8 @@ pub fn build(dir: &Path) -> Result<PathBuf, Vec<Finding>> {
     let mj = stage.join("manifest.json");
     std::fs::write(&mj, parsed.to_canonical_json().map_err(rv)?).map_err(|e| io(&mj, e))?;
 
-    // same as `rvp-pack <src> <out>` without --sig. Jailed `type=new` entries only, so the
-    // stock-path check (`check_stock`) has nothing to test until phase 2 adds `changes:`.
+    // same as `rvp-pack <src> <out>` without --sig. The daemon runs the stock-path check
+    // (`check_stock`) against the unit's file list at install.
     let core = rvp::pack::pack_dir(&stage).map_err(rv)?;
     rvp::pack::check_signable(&core).map_err(rv)?;
     let bytes = rvp::container::container_write(&core, None).map_err(rv)?;

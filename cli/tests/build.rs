@@ -1,5 +1,5 @@
 use revised_sdk::{build::build, new::new_project};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn tmp(name: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("rsdk-b-{name}-{}", std::process::id()));
@@ -159,14 +159,80 @@ fn build_rejects_empty_rows_without_background() {
     assert_eq!(build(&proj).unwrap_err()[0].rule, "rows");
 }
 
+// Stock paths and modes come from the published baseline lists; the bytes are our own fixtures.
+const FOCUS: &str = "/jci/gui/apps/xmdata/controls/xmdataList2/images/ListFocus.png";
+const CSS: &str = "/jci/gui/apps/amradio/css/amradioApp.css";
+
+fn fixture(f: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/skin-changes/changes").join(f)
+}
+
+/// Copies the fixture PNG and diff into `proj` and lists them as the `changes:` of `yaml`.
+fn add_changes(proj: &Path, yaml: &str) {
+    std::fs::create_dir_all(proj.join("skin")).unwrap();
+    std::fs::copy(fixture("focus.png"), proj.join("skin/focus.png")).unwrap();
+    std::fs::copy(fixture("clean.css.diff"), proj.join("skin/am.css.diff")).unwrap();
+    let chg = format!(
+        "changes:\n  - live: {FOCUS}\n    file: skin/focus.png\n    apply: whole-file\n    reason: new focus bar\n  \
+         - live: {CSS}\n    file: skin/am.css.diff\n    apply: three-way\n    reason: red accent\n"
+    );
+    std::fs::write(proj.join("mod.yaml"), yaml.replace("changes: []\n", &chg)).unwrap();
+}
+
+const SKIN: &str = "name: s1\nversion: 1.0.0\ntargetCMU: \"74.00.324A\"\ncategory: Skins\nchanges: []\n";
+
+fn unpack(rvp: &Path) -> (rvp::manifest::Manifest, Vec<rvp::ustar::UstarEntry>) {
+    rvp::pack::unpack_mem(&std::fs::read(rvp).unwrap()[7..]).unwrap()
+}
+
+fn modify_json(m: &rvp::manifest::Manifest) -> Vec<serde_json::Value> {
+    let v = serde_json::to_value(m).unwrap();
+    v["files"].as_array().unwrap().iter().filter(|f| f["type"] == "modify").cloned().collect()
+}
+
 #[test]
-fn build_refuses_changes_for_now() {
-    let proj = new_project(&tmp("chg"), "app", "t7").unwrap();
-    let y = std::fs::read_to_string(proj.join("mod.yaml")).unwrap();
-    let chg = "changes:\n  - live: /jci/gui/index.html\n    file: stock/index.html\n    apply: whole-file\n    reason: new skin\n";
-    std::fs::write(proj.join("mod.yaml"), y.replace("changes: []\n", chg)).unwrap();
-    std::fs::create_dir_all(proj.join("stock")).unwrap();
-    std::fs::write(proj.join("stock/index.html"), "<p>skin</p>\n").unwrap();
+fn build_skin_packages_changes() {
+    let proj = tmp("skin");
+    add_changes(&proj, SKIN);
+    let (m, entries) = unpack(&build(&proj).unwrap());
+    assert_eq!((m.category.as_str(), m.description.as_str(), m.restart), ("Skins", "s1", true));
+    let mods = modify_json(&m);
+    assert_eq!(mods.len(), m.files.len(), "no app: only modify entries");
+    let png = serde_json::json!({"live": FOCUS, "payload": format!("payload/stock{FOCUS}"), "mode": "0755",
+        "owner": "1000:1000", "type": "modify", "apply": "whole-file", "reason": "new focus bar", "revert": {}});
+    let css = serde_json::json!({"live": CSS, "payload": format!("payload/stock{CSS}"), "mode": "0755",
+        "owner": "1000:1000", "type": "modify", "apply": "3way", "reason": "red accent", "revert": {}});
+    assert_eq!(mods, vec![png, css]);
+    assert!(!entries.iter().any(|e| e.name.starts_with("payload/ui/")), "no ui/ walk, no hmi.json");
+    let data = |p: String| entries.iter().find(|e| e.name == p).unwrap().data.clone();
+    assert_eq!(data(format!("payload/stock{FOCUS}")), std::fs::read(fixture("focus.png")).unwrap());
+    assert_eq!(data(format!("payload/stock{CSS}")), std::fs::read(fixture("clean.css.diff")).unwrap());
+}
+
+#[test]
+fn build_app_with_changes_has_both_kinds() {
+    let proj = new_project(&tmp("appchg"), "app", "t7").unwrap();
+    add_changes(&proj, &std::fs::read_to_string(proj.join("mod.yaml")).unwrap());
+    let (m, entries) = unpack(&build(&proj).unwrap());
+    assert_eq!((m.category.as_str(), m.description.as_str(), m.restart), ("Apps", "t7", true));
+    assert_eq!(modify_json(&m).len(), 2);
+    assert!(m.files.iter().any(|f| f.live == "ui/main.js" && f.r#type == rvp::manifest::FileType::New));
+    assert!(entries.iter().any(|e| e.name == "payload/ui/hmi.json"));
+}
+
+#[test]
+fn build_app_without_changes_needs_no_restart() {
+    let proj = new_project(&tmp("norestart"), "app", "t8").unwrap();
+    assert!(!unpack(&build(&proj).unwrap()).0.restart);
+}
+
+#[test]
+fn build_refuses_a_change_outside_the_baseline() {
+    let proj = tmp("nostock");
+    add_changes(&proj, &SKIN.replace("s1", "s2"));
+    let y = std::fs::read_to_string(proj.join("mod.yaml")).unwrap().replace(CSS, "/jci/gui/apps/amradio/css/none.css");
+    std::fs::write(proj.join("mod.yaml"), y).unwrap();
     let f = build(&proj).unwrap_err();
-    assert_eq!(f[0].rule, "changes-unsupported", "{:?}", f[0].msg);
+    assert_eq!(f[0].rule, "stock-path", "{:?}", f[0].msg);
+    assert!(!proj.join("dist").exists());
 }

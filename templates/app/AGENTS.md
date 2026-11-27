@@ -47,9 +47,9 @@ Other commands report these ids:
 
 | Rule | Level | Command | Meaning |
 |---|---|---|---|
-| `no-app` | error | `build` | `mod.yaml` has no `app:` block. |
-| `changes-unsupported` | error | `build` | `mod.yaml` lists `changes:`. Building them is not supported yet. |
+| `no-app` | error | `build` | `mod.yaml` has neither an `app:` block nor a `changes:` list (the same check as lint). |
 | `rows` | error | `build` | `app.rows` is empty. |
+| `stock-path` | error | `build` | A change's `live` has no mode in the stock baseline list. `build` never guesses a mode. |
 | `entry` | error | `build` | `app.entry` is not a path under `ui/`. |
 | `entry-missing` | error | `build` | `app.entry` does not exist. |
 | `hmi-id` | error | `build` | An HMI id is longer than 32 characters: shorten `name`. |
@@ -70,9 +70,9 @@ When a `preview` or `unit` action itself fails (exit 1), the rule id is the sub-
 
 ### Jail rules
 
-- A package owns only its own jail directory. Every file in the package lives under `ui/`; `build` generates `ui/hmi.json` and the manifest.
+- A package owns only its own jail directory. Every app file lives under `ui/`; `build` generates `ui/hmi.json` and the manifest. The only files outside the jail are the stock files listed in `changes:`, each with a `reason`. They take the stock mode and owner, and the HMI restarts after install.
 - Package names and HMI ids match `[a-z0-9][a-z0-9-]*`, at most 32 characters. Lint enforces this (`name`).
-- The jail and stock-path rules below are enforced by the daemon when it installs the package, not by lint. The project must not claim any path in the store's own namespace. Stock files are never part of a package.
+- Lint and `build` check the stock paths of `changes:` against the published baseline list. The daemon checks the jail and stock paths again against the unit when it installs the package. The project must not claim any path in the store's own namespace. Stock files are never part of a package.
 - Only `targetCMU: "74.00.324A"` is supported.
 - `mod.yaml` is the single source of truth. Do not hand-write `ui/hmi.json` or a manifest.
 - Package settings (the store's **Configuration** screen) go in the `config:` block of `mod.yaml`. Format and rules: `docs/config.md` in the SDK.
