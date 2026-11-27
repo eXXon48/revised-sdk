@@ -127,6 +127,13 @@ pub fn parse(text: &str) -> Result<ModYaml, Vec<Finding>> {
         if !c.live.starts_with('/') {
             errs.push(Finding::error("change-live", &format!("changes[{i}].live {:?} must be an absolute path on the unit", c.live)));
         }
+        // Exact match is enough: lint accepts only paths exactly as they appear in the baseline list.
+        if let Some(j) = m.changes[..i].iter().position(|p| p.live == c.live) {
+            errs.push(Finding::error(
+                "change-live",
+                &format!("changes[{j}] and changes[{i}] both change {}: one change per stock file", c.live),
+            ));
+        }
         let f = &c.file;
         // By segment, so `./ui/x` or `ui/./x` cannot slip into ui/; `/abs` and `a//b` give an empty segment.
         let bad_seg = f.split('/').any(|s| matches!(s, "" | "." | ".."));

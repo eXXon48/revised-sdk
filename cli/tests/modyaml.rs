@@ -90,6 +90,25 @@ fn change_shape_rules() {
 }
 
 #[test]
+fn two_changes_to_one_live_are_refused() {
+    let ch = |live: &str, file: &str, apply: &str| {
+        format!("  - live: {live}\n    file: {file}\n    apply: {apply}\n    reason: r\n")
+    };
+    for first in ["three-way", "whole-file"] {
+        let y = yaml(&format!(
+            "changes:\n{}{}{}",
+            ch("/jci/a.css", "skin/a.diff", first),
+            ch("/jci/b.css", "skin/b.diff", "three-way"),
+            ch("/jci/a.css", "skin/c.diff", "three-way")
+        ));
+        let r = rules(&y);
+        assert_eq!(r.len(), 1, "{r:?}");
+        assert_eq!(r[0].0, "change-live");
+        assert!(r[0].1.contains("changes[0]") && r[0].1.contains("changes[2]") && r[0].1.contains("/jci/a.css"), "{}", r[0].1);
+    }
+}
+
+#[test]
 fn bad_apply_names_allowed_values() {
     let r = rules(&yaml("changes:\n  - live: /a\n    file: b\n    apply: 3way\n    reason: r\n"));
     assert_eq!(r[0].0, "mod-yaml");

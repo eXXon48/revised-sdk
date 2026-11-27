@@ -32,7 +32,7 @@ Every finding has a `rule` id, a `level` (`error` or `warning`), and `file`, `li
 | `target-cmu` | error | `targetCMU` is not `74.00.324A`, the only supported firmware. |
 | `no-app` | error | `mod.yaml` has neither an `app:` block nor a `changes:` list. |
 | `category` | error | `category` is not `Apps`, `Skins` or `System mods`. Without it, the category is `Apps` for a project with an app and `System mods` otherwise. |
-| `change-live` | error | A change's `live` is not an absolute path on the unit. |
+| `change-live` | error | A change's `live` is not an absolute path on the unit, or two changes name the same `live` (one change per stock file). |
 | `change-file` | error | A change's `file` is empty or absolute, contains a backslash, has an empty, `.` or `..` segment, or starts with the `ui` segment. |
 | `change-reason` | error | A change's `reason` is empty. |
 | `stock-path` | error | A change's `live` is not a regular file of the stock baseline list, is `/` or has a `..` segment. For a symlink, the message names the target to change instead. |
