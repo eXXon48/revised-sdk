@@ -31,6 +31,13 @@ pub struct UpOpts {
     /// Run the stock GUI from this baseline dir (engine mount source, see `stock_source`)
     /// instead of the stub page.
     pub stock: Option<String>,
+    /// Publish a live view (VNC, no password) of the preview screen on this loopback port.
+    pub vnc: Option<u16>,
+}
+
+/// The line `preview up --vnc` prints.
+pub fn vnc_line(port: u16) -> String {
+    format!("live view: vnc://127.0.0.1:{port} (no password, loopback only)")
 }
 
 /// Mount source for the baseline dir. A POSIX absolute path is kept as is: with podman machine
@@ -140,6 +147,10 @@ pub fn run_args(tag: &str, project: &str, rvp_rel: &str, o: &UpOpts) -> Vec<Stri
     if let Some(dir) = &o.stock {
         // read-only: the container copies /jci/gui into its own writable layer
         a.extend([s("-v"), format!("{dir}:/stock:ro"), s("-e"), s("STOCK=1")]);
+    }
+    if let Some(port) = o.vnc {
+        // loopback only: the view takes mouse and keyboard input and has no password
+        a.extend([s("-p"), format!("127.0.0.1:{port}:5900"), s("-e"), s("VNC=1")]);
     }
     a.extend([s(tag), s("sh"), s("/opt/revised/preview/entry.sh")]);
     a

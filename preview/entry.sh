@@ -1,6 +1,7 @@
 #!/bin/sh
 # Container entrypoint of `revised-sdk preview up` (fake unit; DEV ONLY).
 # env: RVP = the built package inside the container (/work/dist/<name>-<version>.rvp)
+#      VNC=1: live view of the screen (x11vnc on :5900, no password; the host publishes it on loopback)
 #      STOCK=1: run the stock GUI from the baseline mounted read-only at /stock, with stub sockets
 # Order matters: the HMI SDK reads its registry at page load, so the package is installed
 # before Opera starts.
@@ -66,6 +67,10 @@ esac
 # screen and the page viewport is exactly 800x480 at (0,0). 61 = chrome above the page, 22 = status bar
 # below it (Opera 12.10 default skin); `shot` crops to 800x480.
 Xvfb :99 -screen 0 800x563x24 -nolisten tcp &
+if [ "${VNC:-0}" = 1 ]; then
+  # no -viewonly: mouse and keyboard reach Opera
+  (sleep 1; x11vnc -display :99 -forever -shared -nopw -rfbport 5900 -quiet) &
+fi
 if [ "${START_OPERA:-1}" = 1 ]; then
   # START_OPERA=1 means the developer accepted Opera's license on the command line
   # (`preview up --accept-opera-license`); this only records it in the throwaway profile.

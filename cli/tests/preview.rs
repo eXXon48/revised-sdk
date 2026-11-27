@@ -69,7 +69,20 @@ fn run_args_bind_loopback_only_and_mount_project_and_opera() {
 }
 
 fn opts(opera: bool, stock: Option<&str>) -> UpOpts {
-    UpOpts { opera, stock: stock.map(String::from) }
+    UpOpts { opera, stock: stock.map(String::from), vnc: None }
+}
+
+#[test]
+fn run_args_publish_vnc_on_loopback_only_when_asked() {
+    let o = UpOpts { vnc: Some(5900), ..opts(true, None) };
+    let a = run_args("t", "/p", "d/a.rvp", &o).join(" ");
+    assert!(a.contains("-p 127.0.0.1:5900:5900") && a.contains("-e VNC=1"), "{a}");
+    assert!(!a.contains("0.0.0.0"), "{a}");
+    let o = UpOpts { vnc: Some(5901), ..opts(true, Some("/s")) };
+    assert!(run_args("t", "/p", "d/a.rvp", &o).join(" ").contains("-p 127.0.0.1:5901:5900"));
+    let a = run_args("t", "/p", "d/a.rvp", &opts(true, Some("/s"))).join(" ");
+    assert!(!a.contains("5900") && !a.contains("VNC=1"), "{a}");
+    assert_eq!(vnc_line(5900), "live view: vnc://127.0.0.1:5900 (no password, loopback only)");
 }
 
 #[test]

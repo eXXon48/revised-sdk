@@ -118,7 +118,7 @@ fn opera_license_help(detected: Option<&engine::Engine>) -> String {
 
 /// `preview up|down|url|eval|shot|logs|key|ctx`: drives the preview container from the host.
 fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std::path::Path) -> i32 {
-    const USAGE: &str = "usage: revised-sdk preview up [--accept-opera-license] [--stock [dir]] | down | url | eval '<js>' | shot <file.png> | logs [n] | key <name> | ctx <uiaId> <ctxtId>";
+    const USAGE: &str = "usage: revised-sdk preview up [--accept-opera-license] [--stock [dir]] [--vnc [--vnc-port n]] | down | url | eval '<js>' | shot <file.png> | logs [n] | key <name> | ctx <uiaId> <ctxtId>";
     let sub = rest.get(1).map(String::as_str).unwrap_or("");
     let cmd = format!("preview {sub}");
     let arg = rest.get(2).map(String::as_str);
@@ -142,6 +142,12 @@ fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std
         }
         Some(Some(d)) => Some(d),
     };
+    let vnc_port = match rest.iter().position(|a| a == "--vnc-port").map(|i| rest.get(i + 1).and_then(|p| p.parse::<u16>().ok())) {
+        None => 5900,
+        Some(Some(p)) if p > 0 => p,
+        Some(_) => return report::env_error_in(json, &cmd, "--vnc-port needs a port number (1-65535)"),
+    };
+    let vnc = rest.iter().any(|a| a == "--vnc").then_some(vnc_port);
     let warnings = stock.as_deref().map(preview::stock_warnings).unwrap_or_default();
     let stock_src = match stock.as_deref().map(preview::stock_source).transpose() {
         Ok(s) => s,
@@ -157,7 +163,10 @@ fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std
     let arg = arg.unwrap_or("");
     // (text for plain mode, data for --json)
     let r: Result<(String, serde_json::Value), String> = match sub {
-        "up" => preview::up(&e, project, &preview::UpOpts { opera: true, stock: stock_src }).map(|u| (u.clone(), json!({"url": u}))),
+        "up" => preview::up(&e, project, &preview::UpOpts { opera: true, stock: stock_src, vnc }).map(|u| match vnc {
+            Some(p) => (format!("{u}\n{}", preview::vnc_line(p)), json!({"url": u, "vnc": format!("vnc://127.0.0.1:{p}")})),
+            None => (u.clone(), json!({"url": u})),
+        }),
         "ctx" => preview::ctx(&e, arg, &rest[3]).map(|_| (format!("ctx {arg} {}", rest[3]), json!({"uiaId": arg, "ctxtId": rest[3]}))),
         "down" => preview::down(&e).map(|_| ("preview down".into(), json!({}))),
         "url" => preview::url(&e).map(|u| (u.clone(), json!({"url": u}))),
