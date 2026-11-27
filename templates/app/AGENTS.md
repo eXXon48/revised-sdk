@@ -49,6 +49,7 @@ Other commands report these ids:
 |---|---|---|---|
 | `no-app` | error | `build` | `mod.yaml` has neither an `app:` block nor a `changes:` list (the same check as lint). |
 | `rows` | error | `build` | `app.rows` is empty. |
+| `stock-path` | error | `baseline png-size` | The path is not a PNG of the stock baseline list. |
 | `stock-path` | error | `build` | A change's `live` has no mode in the stock baseline list. `build` never guesses a mode. |
 | `entry` | error | `build` | `app.entry` is not a path under `ui/`. |
 | `entry-missing` | error | `build` | `app.entry` does not exist. |
@@ -70,9 +71,9 @@ When a `preview` or `unit` action itself fails (exit 1), the rule id is the sub-
 
 ### Jail rules
 
-- A package owns only its own jail directory. Every app file lives under `ui/`; `build` generates `ui/hmi.json` and the manifest. The only files outside the jail are the stock files listed in `changes:`, each with a `reason`. They take the stock mode and owner, and the HMI restarts after install.
+- A package owns only its own jail directory. Every app file lives under `ui/`; `build` generates `ui/hmi.json` and the manifest. Outside the jail, a package changes only the stock paths listed in `changes:`, each with a `reason`. For each path it carries replacement bytes (`whole-file`) or a diff (`three-way`), never stock file content. Changed files keep the stock mode and owner, and the HMI restarts after install.
 - Package names and HMI ids match `[a-z0-9][a-z0-9-]*`, at most 32 characters. Lint enforces this (`name`).
-- Lint and `build` check the stock paths of `changes:` against the published baseline list. The daemon checks the jail and stock paths again against the unit when it installs the package. The project must not claim any path in the store's own namespace. Stock files are never part of a package.
+- Lint and `build` check the stock paths of `changes:` against the published baseline list. The daemon checks the jail and stock paths again against the unit when it installs the package. The project must not claim any path in the store's own namespace. A package never contains a stock file or a modified full copy of one.
 - Only `targetCMU: "74.00.324A"` is supported.
 - `mod.yaml` is the single source of truth. Do not hand-write `ui/hmi.json` or a manifest.
 - Package settings (the store's **Configuration** screen) go in the `config:` block of `mod.yaml`. Format and rules: `docs/config.md` in the SDK.
@@ -191,17 +192,19 @@ Work in this loop: `new`, `lint`, `build`, `preview up`, `eval` and `shot`, then
 |---|---|
 | `setup --store <cmu-re-store checkout> [--sdk <revised-sdk checkout>] [--dry-run]` | Builds the SDK image with podman or docker. Run once. `--store` is required (phase 1: the store repo is private). `--sdk` is needed only when the binary does not run from inside a revised-sdk checkout. `--dry-run` prints the engine arguments and builds nothing. |
 | `opera install --image` | Downloads Opera 12.10 into the `revised-sdk-opera` volume and checks its sha256. |
-| `new <template> <name>` | Creates `<name>/` from a template (`app`). Also writes `AGENTS.md` and `CLAUDE.md`. |
+| `new <template> <name>` | Creates `<name>/` from a template: `app` (also writes `AGENTS.md` and `CLAUDE.md`) or `skin` (see Skins). |
 | `lint` | Checks the project (see Rules). |
 | `build` | Runs lint, then writes `dist/<name>-<version>.rvp` (unsigned). |
 | `baseline check <dir>` | Compares an extracted stock rootfs with the published md5 list. |
-| `preview up --accept-opera-license` | Starts the fake unit and a headless Opera 12.10. |
+| `baseline png-size <live>` | Prints the pixel size of a stock PNG as `W H` (`--json`: `width`, `height`). |
+| `preview up --accept-opera-license [--stock [dir]] [--vnc [--vnc-port n]]` | Starts the fake unit and a headless Opera 12.10. `--stock` runs the stock GUI from the baseline, `--vnc` adds a live view (see Skins). |
 | `preview down` | Stops it. |
 | `preview url` | Prints the page URL for your own Opera. |
 | `preview eval '<js>'` | Runs JavaScript in the page and returns the result. |
 | `preview shot <file.png>` | Screenshot, saved inside the project. |
 | `preview key <name>` | Sends a key: `up down left right enter back home`. |
 | `preview logs [n]` | Last `n` lines of the preview log (default 30). |
+| `preview ctx <uiaId> <ctxtId>` | Opens a stock screen (only with `--stock`). |
 | `push [--unit cmu@<ip>] [--key <file>]` | Builds, copies the `.rvp` to the unit, installs it as unsigned. |
 | `unit logs [n]` | Last `n` log lines that mention your package or an `[rvp-sdk` tag. |
 | `unit shot <file.png>` | Screenshot of the unit's screen. The path must not start with `-` or contain `:`. |
@@ -255,7 +258,7 @@ In `baseline check`, `missing` and `mismatch` list paths. In `push`, `restart` i
 - `preview up` needs `--accept-opera-license`. Opera 12.10 is not part of this project and comes under its own license (EULA). By passing the flag you, the developer, accept that EULA on this machine. Without the flag the command exits 2 and prints how to read the license. An agent must not pass the flag on its own: ask the developer first.
 - Install Opera once with `opera install --image`.
 - Preview binds `127.0.0.1` only: sim daemon on port 2777, HTTP on 8750. Running `preview up` again replaces the running preview with a fresh one (there is only ever one preview container).
-- The preview HMI is a small stub, not the stock HMI. It proves your app's code and layout, not the stock screens around it.
+- Without `--stock`, the preview HMI is a small stub, not the stock HMI. It proves your app's code and layout, not the stock screens around it. With `--stock` it runs the stock GUI from your baseline (see Skins).
 
 ### Push and the unit
 
@@ -297,3 +300,38 @@ revised-sdk baseline check stock/rootfs
 - Windows: `wsl --mount <vhd> --vhd --bare`, then `mount -o ro,norecovery <device> <dir>`.
 
 Search stock files only there. Never search the unit.
+
+## Skins
+
+A skin is a package with `category: Skins` and no app. It changes stock HMI files through `changes:` in `mod.yaml`. Start from the template: `revised-sdk new skin myskin`. It replaces the screen background (`/jci/gui/common/images/background.png`, a whole-file PNG) and changes the list item text colour in `/jci/gui/common/controls/List2/css/List2Ctrl.css` (a three-way diff).
+
+### Ownership and switching
+
+A package owns the stock files it replaces whole-file. Installing a skin that replaces a file another installed package also replaces whole-file is a switch: the store uninstalls the other package and installs the new one in one step, and its confirm pane shows `Replaces: <title>` first. A whole-file change and a `three-way` diff on the same file from different packages conflict: the install is refused and names the other package. `three-way` diffs from different packages stack when they apply. When the last package that changes a file is uninstalled, the stock file is restored.
+
+### PNG size
+
+A whole-file PNG must have the exact pixel size of the stock PNG it replaces (`png-size`). Get the size from the published list:
+
+```sh
+revised-sdk baseline png-size /jci/gui/common/images/background.png     # prints: 800 480
+```
+
+### CSS is a diff, never a full file
+
+Change a stock CSS file with a `three-way` unified diff, never with a whole-file copy. The diff carries only your changed lines and the few context lines the unified format needs to place them. Context lines are short fragments of the stock file, never the whole file. A full copy of a stock file is stock content, and a package never carries stock content. A diff also applies on top of the stock file the unit has, so it keeps working next to other changes. Lint checks the lines the diff adds against the CSS rules and, with a local baseline, applies the diff to the stock file (`diff-apply`).
+
+### Asset workflow
+
+1. Measure: `revised-sdk baseline png-size <live>` for each PNG you replace.
+2. Draw: keep the art as SVG in `src/`, at that size (`width`, `height` and `viewBox`).
+3. Render: `sh tools/render.sh` in the SDK image (it has `rsvg-convert`) writes the PNG at the stock size.
+4. Check: `revised-sdk lint`. With a baseline recorded by `baseline check`, lint also applies every diff.
+5. Build: `revised-sdk build`.
+6. Look: `revised-sdk preview up --accept-opera-license --stock`, then `preview ctx` to open a screen and `preview shot` to save it.
+
+### Preview against the stock GUI
+
+- `preview up --stock [dir]` runs the stock GUI from the baseline directory (default: the one `baseline check` recorded) with stub sockets, then builds the project and installs it, so your changes show on the stock screens. The baseline is mounted read-only. The copy of the GUI lives in the container, and every `up` starts from a fresh copy.
+- `preview ctx <uiaId> <ctxtId>` opens a stock screen, for example `preview ctx system Entertainment` or `preview ctx fmradio StationList`. Ids are letters, digits or `_`.
+- `preview up --vnc [--vnc-port n]` adds a live view on `vnc://127.0.0.1:5900`. The VNC server has no password and is published on loopback only, but other containers on the same engine network can reach it.

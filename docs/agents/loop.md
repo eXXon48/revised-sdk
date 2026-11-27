@@ -16,17 +16,19 @@ Work in this loop: `new`, `lint`, `build`, `preview up`, `eval` and `shot`, then
 |---|---|
 | `setup --store <cmu-re-store checkout> [--sdk <revised-sdk checkout>] [--dry-run]` | Builds the SDK image with podman or docker. Run once. `--store` is required (phase 1: the store repo is private). `--sdk` is needed only when the binary does not run from inside a revised-sdk checkout. `--dry-run` prints the engine arguments and builds nothing. |
 | `opera install --image` | Downloads Opera 12.10 into the `revised-sdk-opera` volume and checks its sha256. |
-| `new <template> <name>` | Creates `<name>/` from a template (`app`). Also writes `AGENTS.md` and `CLAUDE.md`. |
+| `new <template> <name>` | Creates `<name>/` from a template: `app` (also writes `AGENTS.md` and `CLAUDE.md`) or `skin` (see Skins). |
 | `lint` | Checks the project (see Rules). |
 | `build` | Runs lint, then writes `dist/<name>-<version>.rvp` (unsigned). |
 | `baseline check <dir>` | Compares an extracted stock rootfs with the published md5 list. |
-| `preview up --accept-opera-license` | Starts the fake unit and a headless Opera 12.10. |
+| `baseline png-size <live>` | Prints the pixel size of a stock PNG as `W H` (`--json`: `width`, `height`). |
+| `preview up --accept-opera-license [--stock [dir]] [--vnc [--vnc-port n]]` | Starts the fake unit and a headless Opera 12.10. `--stock` runs the stock GUI from the baseline, `--vnc` adds a live view (see Skins). |
 | `preview down` | Stops it. |
 | `preview url` | Prints the page URL for your own Opera. |
 | `preview eval '<js>'` | Runs JavaScript in the page and returns the result. |
 | `preview shot <file.png>` | Screenshot, saved inside the project. |
 | `preview key <name>` | Sends a key: `up down left right enter back home`. |
 | `preview logs [n]` | Last `n` lines of the preview log (default 30). |
+| `preview ctx <uiaId> <ctxtId>` | Opens a stock screen (only with `--stock`). |
 | `push [--unit cmu@<ip>] [--key <file>]` | Builds, copies the `.rvp` to the unit, installs it as unsigned. |
 | `unit logs [n]` | Last `n` log lines that mention your package or an `[rvp-sdk` tag. |
 | `unit shot <file.png>` | Screenshot of the unit's screen. The path must not start with `-` or contain `:`. |
@@ -80,7 +82,7 @@ In `baseline check`, `missing` and `mismatch` list paths. In `push`, `restart` i
 - `preview up` needs `--accept-opera-license`. Opera 12.10 is not part of this project and comes under its own license (EULA). By passing the flag you, the developer, accept that EULA on this machine. Without the flag the command exits 2 and prints how to read the license. An agent must not pass the flag on its own: ask the developer first.
 - Install Opera once with `opera install --image`.
 - Preview binds `127.0.0.1` only: sim daemon on port 2777, HTTP on 8750. Running `preview up` again replaces the running preview with a fresh one (there is only ever one preview container).
-- The preview HMI is a small stub, not the stock HMI. It proves your app's code and layout, not the stock screens around it.
+- Without `--stock`, the preview HMI is a small stub, not the stock HMI. It proves your app's code and layout, not the stock screens around it. With `--stock` it runs the stock GUI from your baseline (see Skins).
 
 ### Push and the unit
 

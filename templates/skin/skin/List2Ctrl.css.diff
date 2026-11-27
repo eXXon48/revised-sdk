@@ -1,0 +1,7 @@
+--- a/List2Ctrl.css
++++ b/List2Ctrl.css
+@@ -698,3 +698,3 @@
+   display: block;
+-  color: white;
++  color: #E0E0E0;
+   overflow: hidden;

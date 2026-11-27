@@ -143,3 +143,17 @@ fn modes_paths_are_in_the_md5_list() {
     assert!(in_md5_list("/jci/gui/common/controls/List2/images/ListFocus.png"));
     assert!(!in_md5_list("/nope"));
 }
+
+#[test]
+fn cli_png_size_prints_width_and_height() {
+    let run = |args: &[&str]| std::process::Command::new(env!("CARGO_BIN_EXE_revised-sdk")).args(args).output().unwrap();
+    let o = run(&["baseline", "png-size", "/jci/gui/common/images/background.png"]);
+    assert_eq!((o.status.code(), String::from_utf8_lossy(&o.stdout).as_ref()), (Some(0), "800 480\n"));
+    let o = run(&["--json", "baseline", "png-size", "/nope.png"]);
+    assert_eq!(o.status.code(), Some(1));
+    let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(v["errors"][0]["rule"], "stock-path");
+    let o = run(&["--json", "baseline", "png-size", "/jci/gui/common/images/background.png"]);
+    let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((v["data"]["width"].as_u64(), v["data"]["height"].as_u64()), (Some(800), Some(480)));
+}

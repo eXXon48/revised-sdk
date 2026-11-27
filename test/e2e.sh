@@ -1,5 +1,5 @@
 #!/bin/sh
-# End-to-end check: new -> lint -> build -> preview up/eval/shot/down.
+# End-to-end check: new -> lint -> build (app and skin) -> preview up/eval/shot/down.
 # Needs a container engine, the image (`revised-sdk setup`) and Opera in the volume.
 # Running this script means accepting the Opera 12.10 EULA on this machine
 # (it passes --accept-opera-license to `preview up`).
@@ -29,6 +29,10 @@ cd e2e || exit 2
 run lint "$sdk" lint --json;  has '"ok": *true'
 run build "$sdk" build --json; has '"ok": *true'
 step=build-artifact; ls dist/*.rvp >/dev/null || exit 1
+run new-skin "$sdk" -C "$tmp" new skin e2e-skin
+run lint-skin "$sdk" -C "$tmp/e2e-skin" lint --json; has '"ok": *true'
+run build-skin "$sdk" -C "$tmp/e2e-skin" build --json; has '"ok": *true'
+step=build-skin-artifact; ls "$tmp"/e2e-skin/dist/e2e-skin-0.1.0.rvp >/dev/null || exit 1
 run preview-up "$sdk" preview up --accept-opera-license --json; has '"ok": *true'
 run eval-api "$sdk" preview eval 'RevisedHMI.apiVersion' --json; has '"result": *"1"'
 # a browser left open on :8750 could answer too: require the container Opera (X11)

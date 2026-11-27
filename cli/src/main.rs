@@ -38,7 +38,8 @@ fn run(args: Vec<String>) -> i32 {
     if cmd == "baseline" {
         return match rest.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
             ["baseline", "check", d] => baseline::check_cmd(&project, std::path::Path::new(d), baseline::LIST).emit(json),
-            _ => report::env_error_in(json, "baseline", "usage: revised-sdk baseline check <dir>"),
+            ["baseline", "png-size", live] => png_size(live, json),
+            _ => report::env_error_in(json, "baseline", "usage: revised-sdk baseline check <dir> | png-size <live>"),
         };
     }
     if cmd == "new" || cmd == "build" || cmd == "lint" {
@@ -49,6 +50,22 @@ fn run(args: Vec<String>) -> i32 {
         &cmd,
         &format!("unknown command {cmd:?} (setup, opera, new, build, lint, baseline, preview, push, unit)"),
     )
+}
+
+/// `baseline png-size <live>`: the stock PNG's pixel size, `W H` in plain mode.
+fn png_size(live: &str, json: bool) -> i32 {
+    let cmd = "baseline png-size";
+    match baseline::png_size(live) {
+        Some((w, h)) if !json => {
+            println!("{w} {h}");
+            0
+        }
+        Some((w, h)) => report::Report::new(cmd, json!({"width": w, "height": h}), vec![]).emit(true),
+        None => {
+            let f = report::Finding::error("stock-path", &format!("{live} is not a PNG of the stock baseline list"));
+            report::Report::new(cmd, json!({}), vec![f]).emit(json)
+        }
+    }
 }
 
 /// Commands that run on the host (they manage the image itself).

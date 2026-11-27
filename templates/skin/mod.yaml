@@ -1,0 +1,13 @@
+name: {{name}}
+version: 0.1.0
+targetCMU: "74.00.324A"
+category: Skins
+changes:
+  - live: /jci/gui/common/images/background.png
+    file: skin/background.png
+    apply: whole-file
+    reason: dark screen background
+  - live: /jci/gui/common/controls/List2/css/List2Ctrl.css
+    file: skin/List2Ctrl.css.diff
+    apply: three-way
+    reason: list item text colour

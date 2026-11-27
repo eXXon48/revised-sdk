@@ -12,9 +12,9 @@ and how to test on a real unit. The command and API reference is [`guide.md`](gu
 | Background mod | Code that loads with the HMI and listens to screens and keys, with no menu row | `app.rows: []` and `app.background: true` |
 | Package settings | A Configuration screen for your package, values readable by your code | `config:` block, see [`config.md`](config.md) |
 | On-demand service | A process of your own that your app starts and stops | `RevisedHMI.service()`, see the API in [`guide.md`](guide.md) |
+| Skin | New images and colours for stock screens, with no app | `revised-sdk new skin <name>`, then `changes:` in `mod.yaml`, see Skins in [`guide.md`](guide.md) |
 
-Not supported yet: edits to stock system files (`changes:` must stay empty) and native
-backends (`native:`). `lint` refuses both.
+Not supported yet: native backends (`native:`). `lint` refuses them.
 
 ## The workflow
 

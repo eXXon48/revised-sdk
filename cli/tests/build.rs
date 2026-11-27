@@ -236,3 +236,37 @@ fn build_refuses_a_change_outside_the_baseline() {
     assert_eq!(f[0].rule, "stock-path", "{:?}", f[0].msg);
     assert!(!proj.join("dist").exists());
 }
+
+const BG: &str = "/jci/gui/common/images/background.png";
+const LIST_CSS: &str = "/jci/gui/common/controls/List2/css/List2Ctrl.css";
+
+#[test]
+fn new_skin_writes_the_template_with_the_name() {
+    let p = new_project(&tmp("skintpl"), "skin", "demo").unwrap();
+    for f in ["mod.yaml", "README.md", ".gitignore", "src/background.svg", "skin/background.png", "skin/List2Ctrl.css.diff", "tools/render.sh"] {
+        let b = std::fs::read(p.join(f)).unwrap_or_else(|e| panic!("{f}: {e}"));
+        assert!(!String::from_utf8_lossy(&b).contains("{{name}}"), "{f} still has {{{{name}}}}");
+    }
+    let y = std::fs::read_to_string(p.join("mod.yaml")).unwrap();
+    assert!(y.starts_with("name: demo\n") && y.contains("category: Skins"), "{y}");
+    assert!(!p.join("ui").exists() && !p.join("AGENTS.md").exists());
+}
+
+#[test]
+fn fresh_skin_lints_with_only_the_no_baseline_warning() {
+    let p = new_project(&tmp("skinlint"), "skin", "demo").unwrap();
+    let f = revised_sdk::lint::run(&p);
+    let rules: Vec<_> = f.iter().map(|x| x.rule.as_str()).collect();
+    assert_eq!(rules, ["no-baseline"], "{f:?}");
+}
+
+#[test]
+fn fresh_skin_builds_two_modify_entries() {
+    let p = new_project(&tmp("skinbuild"), "skin", "demo").unwrap();
+    let (m, _) = unpack(&build(&p).unwrap());
+    assert_eq!((m.category.as_str(), m.restart), ("Skins", true));
+    let mods = modify_json(&m);
+    let got: Vec<_> = mods.iter().map(|f| (f["live"].as_str().unwrap(), f["apply"].as_str().unwrap())).collect();
+    assert_eq!(got, [(BG, "whole-file"), (LIST_CSS, "3way")]);
+    assert_eq!(mods.len(), m.files.len());
+}

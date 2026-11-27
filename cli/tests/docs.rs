@@ -3,7 +3,7 @@
 use revised_sdk::new::new_project;
 use std::path::{Path, PathBuf};
 
-const PARTS: [&str; 4] = ["rules", "api", "loop", "baseline"];
+const PARTS: [&str; 5] = ["rules", "api", "loop", "baseline", "skins"];
 const AGENTS_HEAD: &str = "# AGENTS.md\n\nRules for coding agents that work on this Revised HMI app. Read every section before you change code.\n\n";
 
 fn root() -> PathBuf {
@@ -148,4 +148,27 @@ fn new_writes_agents_and_claude() {
         std::fs::read_to_string(p.join("CLAUDE.md")).unwrap().trim(),
         "Read AGENTS.md."
     );
+}
+
+/// Every `revised-sdk <command>` the guide uses has a row in its Commands table,
+/// and the guide has a Skins section.
+#[test]
+fn guide_documents_every_command_it_uses() {
+    const CMDS: [&str; 9] = ["setup", "opera", "new", "build", "lint", "baseline", "preview", "push", "unit"];
+    const WITH_SUB: [&str; 4] = ["opera", "baseline", "preview", "unit"];
+    let g = read("docs/guide.md");
+    assert!(g.lines().any(|l| l == "## Skins"), "no ## Skins section");
+    for (i, _) in g.match_indices("revised-sdk ") {
+        let words: Vec<&str> = g[i + 12..]
+            .split(|c: char| c.is_whitespace() || c == '`')
+            .filter(|w| !w.is_empty() && !w.starts_with("--"))
+            .take(2)
+            .collect();
+        let Some(&cmd) = words.first().filter(|w| CMDS.contains(w)) else { continue };
+        let used = match words.get(1) {
+            Some(sub) if WITH_SUB.contains(&cmd) => format!("{cmd} {sub}"),
+            _ => cmd.to_string(),
+        };
+        assert!(g.contains(&format!("| `{used}")), "guide uses `revised-sdk {used}` but has no Commands row for it");
+    }
 }

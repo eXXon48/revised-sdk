@@ -17,9 +17,20 @@ const APP: Files = &[
     ("ui/icon.png", include_bytes!("../../templates/app/ui/icon.png")),
 ];
 
+const SKIN: Files = &[
+    ("mod.yaml", include_bytes!("../../templates/skin/mod.yaml")),
+    ("README.md", include_bytes!("../../templates/skin/README.md")),
+    (".gitignore", include_bytes!("../../templates/skin/.gitignore")),
+    ("src/background.svg", include_bytes!("../../templates/skin/src/background.svg")),
+    ("skin/background.png", include_bytes!("../../templates/skin/skin/background.png")),
+    ("skin/List2Ctrl.css.diff", include_bytes!("../../templates/skin/skin/List2Ctrl.css.diff")),
+    ("tools/render.sh", include_bytes!("../../templates/skin/tools/render.sh")),
+];
+
 fn template(name: &str) -> Option<Files> {
     match name {
         "app" => Some(APP),
+        "skin" => Some(SKIN),
         _ => None,
     }
 }
@@ -29,7 +40,7 @@ fn fail(rule: &str, msg: String) -> Vec<Finding> {
 }
 
 pub fn new_project(base: &Path, tpl: &str, name: &str) -> Result<PathBuf, Vec<Finding>> {
-    let files = template(tpl).ok_or_else(|| fail("template", format!("unknown template {tpl:?} (available: app)")))?;
+    let files = template(tpl).ok_or_else(|| fail("template", format!("unknown template {tpl:?} (available: app, skin)")))?;
     if !valid_name(name) {
         return Err(fail("name", format!("invalid name {name:?}: use [a-z0-9][a-z0-9-]*, at most 32 chars")));
     }
