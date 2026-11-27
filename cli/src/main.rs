@@ -1,4 +1,4 @@
-use revised_sdk::{baseline, build, engine, lint, new, preview, report, setup, unit};
+use revised_sdk::{baseline, build, engine, lint, local, new, preview, report, setup, unit};
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -116,16 +116,37 @@ fn opera_license_help(detected: Option<&engine::Engine>) -> String {
     )
 }
 
-/// `preview up|down|url|eval|shot|logs|key`: drives the preview container from the host.
+/// `preview up|down|url|eval|shot|logs|key|ctx`: drives the preview container from the host.
 fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std::path::Path) -> i32 {
-    const USAGE: &str = "usage: revised-sdk preview up [--accept-opera-license] | down | url | eval '<js>' | shot <file.png> | logs [n] | key <name>";
+    const USAGE: &str = "usage: revised-sdk preview up [--accept-opera-license] [--stock [dir]] | down | url | eval '<js>' | shot <file.png> | logs [n] | key <name> | ctx <uiaId> <ctxtId>";
     let sub = rest.get(1).map(String::as_str).unwrap_or("");
     let cmd = format!("preview {sub}");
     let arg = rest.get(2).map(String::as_str);
     let accept = rest.iter().any(|a| a == "--accept-opera-license");
-    if !matches!(sub, "up" | "down" | "url" | "eval" | "shot" | "logs" | "key") || (arg.is_none() && matches!(sub, "eval" | "shot" | "key")) {
+    if !matches!(sub, "up" | "down" | "url" | "eval" | "shot" | "logs" | "key" | "ctx")
+        || (arg.is_none() && matches!(sub, "eval" | "shot" | "key"))
+        || (sub == "ctx" && rest.len() != 4)
+    {
         return report::env_error_in(json, "preview", USAGE);
     }
+    // --stock [dir]: the dir, else the one `baseline check` recorded in .revised/local.toml
+    let stock_flag = rest.iter().position(|a| a == "--stock");
+    let stock_dir = stock_flag.map(|i| match rest.get(i + 1).filter(|d| !d.starts_with("--")) {
+        Some(d) => Some(PathBuf::from(d)),
+        None => local::load(project).baseline,
+    });
+    let stock = match stock_dir {
+        None => None,
+        Some(None) => {
+            return report::env_error_in(json, &cmd, "--stock needs a baseline dir: `--stock <dir>` or run `revised-sdk baseline check <dir>` first");
+        }
+        Some(Some(d)) => Some(d),
+    };
+    let warnings = stock.as_deref().map(preview::stock_warnings).unwrap_or_default();
+    let stock_src = match stock.as_deref().map(preview::stock_source).transpose() {
+        Ok(s) => s,
+        Err(m) => return report::env_error_in(json, &cmd, &m),
+    };
     if sub == "up" && !accept {
         return report::env_error_in(json, &cmd, &opera_license_help(engine::detect(eng).ok().as_ref()));
     }
@@ -136,7 +157,8 @@ fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std
     let arg = arg.unwrap_or("");
     // (text for plain mode, data for --json)
     let r: Result<(String, serde_json::Value), String> = match sub {
-        "up" => preview::up(&e, project, &preview::UpOpts { opera: true }).map(|u| (u.clone(), json!({"url": u}))),
+        "up" => preview::up(&e, project, &preview::UpOpts { opera: true, stock: stock_src }).map(|u| (u.clone(), json!({"url": u}))),
+        "ctx" => preview::ctx(&e, arg, &rest[3]).map(|_| (format!("ctx {arg} {}", rest[3]), json!({"uiaId": arg, "ctxtId": rest[3]}))),
         "down" => preview::down(&e).map(|_| ("preview down".into(), json!({}))),
         "url" => preview::url(&e).map(|u| (u.clone(), json!({"url": u}))),
         "eval" => preview::eval(&e, arg).map(|v| (v.clone(), json!({"result": v}))),
@@ -150,15 +172,22 @@ fn preview_command(rest: &[String], json: bool, eng: Option<&str>, project: &std
     match r {
         Ok((text, data)) => {
             if json {
-                report::Report::new(&cmd, data, vec![]).emit(true)
+                report::Report::new(&cmd, data, warnings).emit(true)
             } else {
+                for w in &warnings {
+                    eprintln!("warning[{}]: {}", w.rule, w.msg);
+                }
                 println!("{text}");
                 0
             }
         }
         Err(m) => match m.strip_prefix(preview::ENV) {
             Some(env) => report::env_error_in(json, &cmd, env),
-            None => report::Report::new(&cmd, json!({}), vec![report::Finding::error(sub, &m)]).emit(json),
+            None => {
+                let mut f = warnings;
+                f.insert(0, report::Finding::error(sub, &m));
+                report::Report::new(&cmd, json!({}), f).emit(json)
+            }
         },
     }
 }

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Container entrypoint of `revised-sdk preview up` (fake unit; DEV ONLY).
 # env: RVP = the built package inside the container (/work/dist/<name>-<version>.rvp)
+#      STOCK=1: run the stock GUI from the baseline mounted read-only at /stock, with stub sockets
 # Order matters: the HMI SDK reads its registry at page load, so the package is installed
 # before Opera starts.
 set -u
@@ -16,7 +17,21 @@ cp $P/stub/pubkey.minisign $SIM/cmu-re/store/pubkey.minisign
 : > $SIM/test-stock.paths
 
 # One web root for the page, the injector, the registry and the package jails.
-ln -sfn $P/stub/jci /web/jci
+if [ "${STOCK:-0}" = 1 ]; then
+  if [ ! -f /stock/jci/gui/index.html ]; then
+    echo "[preview] no /jci/gui/index.html in the baseline" >&2
+    exit 3
+  fi
+  # a copy in this container's writable layer: packages change it, the baseline stays untouched,
+  # and the next `preview up` (a new container) starts from a fresh copy
+  mkdir -p /jci && cp -a /stock/jci/gui /jci/gui
+  # the daemon accepts a change to a stock file only over the published stock md5
+  grep -h '  /jci/gui/' /opt/revised/baseline/*.md5 > $SIM/stock.md5
+  ln -sfn /jci /web/jci
+  node $P/stock/stub.js &
+else
+  ln -sfn $P/stub/jci /web/jci
+fi
 ln -sfn $P/stub/preview /web/preview
 ln -sfn /data /web/data
 ln -sfn $SIM /web/sim
@@ -26,7 +41,10 @@ cp $P/stub/data/integration/developer_mode_GuiConfig.js /data/integration/
 # injector evals by itself, so an empty jail file stands in for the package
 mkdir -p $SIM/cmu-re/pkg/cmu-re-dev-bridge/ui && : > $SIM/cmu-re/pkg/cmu-re-dev-bridge/ui/bridge.js
 
-revised-daemon --test-root $SIM --listen 0.0.0.0:2777 --ctl /tmp/rvp-ctl --dev-pair on --wlan eth0 &
+# The daemon asks the api to confirm every unsigned install: api-stub.js stands in for it.
+# --log-frames on: `preview eval` reads the replies from the daemon log.
+node $P/api-stub.js &
+revised-daemon --test-root $SIM --listen 0.0.0.0:2777 --ctl /tmp/rvp-ctl --wlan eth0 --catalog http://127.0.0.1:8770/v1 --log-frames on &
 ROOT=/web CATALOG=/nonexistent node /opt/revised/sim/serve.js &
 
 # install-push: copy into the push dir, ask the daemon, delete the copy either way

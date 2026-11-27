@@ -51,7 +51,7 @@ fn eval_reply_is_the_nth_new_log_line() {
 
 #[test]
 fn run_args_bind_loopback_only_and_mount_project_and_opera() {
-    let a = run_args("revised-sdk:0.1.0", "C:/p q/proj", "dist/a-0.1.0.rvp", true).join(" ");
+    let a = run_args("revised-sdk:0.1.0", "C:/p q/proj", "dist/a-0.1.0.rvp", &opts(true, None)).join(" ");
     assert!(a.contains("--name revised-sdk-preview"), "{a}");
     assert!(
         a.contains("-p 127.0.0.1:2777:2777") && a.contains("-p 127.0.0.1:8750:8750"),
@@ -62,9 +62,51 @@ fn run_args_bind_loopback_only_and_mount_project_and_opera() {
     assert!(a.contains("-v revised-sdk-opera:/opera:ro"), "{a}");
     assert!(a.contains("-e RVP=/work/dist/a-0.1.0.rvp"), "{a}");
     assert!(a.contains("START_OPERA=1"), "{a}");
-    assert!(run_args("t", "/p", "d/a.rvp", false)
+    assert!(run_args("t", "/p", "d/a.rvp", &opts(false, None))
         .join(" ")
         .contains("START_OPERA=0"));
+    assert!(!a.contains("/stock") && !a.contains("STOCK=1"), "{a}");
+}
+
+fn opts(opera: bool, stock: Option<&str>) -> UpOpts {
+    UpOpts { opera, stock: stock.map(String::from) }
+}
+
+#[test]
+fn run_args_mount_the_stock_baseline_read_only() {
+    let a = run_args("t", "/p", "d/a.rvp", &opts(true, Some("/mnt/cmu root"))).join(" ");
+    assert!(a.contains("-v /mnt/cmu root:/stock:ro"), "{a}");
+    assert!(a.contains("-e STOCK=1"), "{a}");
+    // the mounts come before the image name (everything after it is the command)
+    let img = run_args("t", "/p", "d/a.rvp", &opts(true, Some("/s")));
+    let at = img.iter().position(|x| x == "t").unwrap();
+    assert!(img[..at].iter().any(|x| x == "STOCK=1"), "{img:?}");
+}
+
+#[test]
+fn stock_mount_source_keeps_posix_paths_and_resolves_the_rest() {
+    // a POSIX path is passed as is: on Windows it names a path inside the engine's Linux VM
+    assert_eq!(stock_source(std::path::Path::new("/mnt/cmuroot")).unwrap(), "/mnt/cmuroot");
+    let rel = stock_source(std::path::Path::new("base")).unwrap();
+    assert!(rel.ends_with("/base") && !rel.contains('\\'),"{rel}");
+}
+
+#[test]
+fn stock_on_a_windows_drive_warns_like_baseline_check() {
+    let w = stock_warnings(std::path::Path::new("C:/rootfs"));
+    let b = revised_sdk::baseline::ntfs_hint(std::path::Path::new("C:/rootfs")).unwrap();
+    assert_eq!(w.len(), 1);
+    assert_eq!((w[0].rule.as_str(), w[0].msg.as_str(), w[0].level), (b.rule.as_str(), b.msg.as_str(), b.level));
+    assert!(stock_warnings(std::path::Path::new("/home/me/rootfs")).is_empty());
+}
+
+#[test]
+fn ctx_ids_are_word_characters_only() {
+    assert_eq!(ctx_path("fmradio", "StationList").unwrap(), "/ctx/fmradio/StationList");
+    assert_eq!(ctx_path("system", "Home_2").unwrap(), "/ctx/system/Home_2");
+    for (u, c) in [("", "x"), ("x", ""), ("a/b", "x"), ("x", "../y"), ("x", "a b"), ("x", "a?b"), ("x'", "y"), ("\u{e9}", "y")] {
+        assert!(ctx_path(u, c).is_err(), "{u:?} {c:?}");
+    }
 }
 
 #[test]
@@ -111,7 +153,7 @@ fn opera() -> bool {
 fn up_down_up_idempotent() {
     let Some(e) = it() else { return };
     let p = project("idem");
-    let o = UpOpts { opera: false };
+    let o = opts(false, None);
     up(&e, &p, &o).unwrap();
     let first = up(&e, &p, &o).unwrap();
     assert_eq!(first, URL);
@@ -137,7 +179,7 @@ fn eval_timeout_is_exit_1() {
         &revised_sdk::engine::image_tag(),
         &revised_sdk::engine::abs_host_path(&p).unwrap(),
         &rel,
-        false,
+        &opts(false, None),
     );
     for a in args.iter_mut() {
         *a = a
@@ -189,7 +231,7 @@ fn eval_timeout_is_exit_1() {
 fn shot_writes_png_800x480() {
     let Some(e) = it() else { return };
     let p = project("shot");
-    up(&e, &p, &UpOpts { opera: opera() }).unwrap();
+    up(&e, &p, &opts(opera(), None)).unwrap();
     shot(&e, &p, "shots/a.png").unwrap();
     let b = std::fs::read(p.join("shots/a.png")).unwrap();
     assert_eq!(&b[..8], b"\x89PNG\r\n\x1a\n");
@@ -215,7 +257,7 @@ fn eval_returns_value() {
     let Some(e) = it().filter(|_| opera()) else {
         return;
     };
-    up(&e, &project("eval"), &UpOpts { opera: true }).unwrap();
+    up(&e, &project("eval"), &opts(true, None)).unwrap();
     assert_eq!(eval(&e, "1+1").unwrap(), "2");
     assert_container_opera(&e);
     let _ = down(&e);
@@ -226,7 +268,7 @@ fn app_visible_after_up() {
     let Some(e) = it().filter(|_| opera()) else {
         return;
     };
-    up(&e, &project("app"), &UpOpts { opera: true }).unwrap();
+    up(&e, &project("app"), &opts(true, None)).unwrap();
     assert_container_opera(&e);
     eval(&e, "simGo('Applications')").unwrap();
     // rows: 4 stock, then the Revised Store row, then pvapp
@@ -270,7 +312,7 @@ fn license_help_names_the_detected_engine_and_real_image() {
 fn ctl_write_without_a_reader_returns_in_bounded_time() {
     let Some(e) = it() else { return };
     let p = project("fifo");
-    up(&e, &p, &UpOpts { opera: false }).unwrap();
+    up(&e, &p, &opts(false, None)).unwrap();
     // the daemon is the FIFO reader: kill it and the open blocks
     let kill = "for p in /proc/[0-9]*; do grep -q '^revised-daemon' $p/comm && kill ${p#/proc/}; done; sleep 1";
     let _ = Command::new(&e.bin).args(["exec", CONTAINER, "sh", "-c", kill]).output().unwrap();

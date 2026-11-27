@@ -1,8 +1,10 @@
 //! `revised-sdk preview`: a fake unit in one container (`revised-sdk-preview`): the real daemon in
 //! test mode, the sim web server, Xvfb and headless Opera 12.10 (from the `revised-sdk-opera`
 //! volume). Host side only; the container side is `preview/entry.sh`.
+use crate::baseline;
 use crate::build;
 use crate::engine::{abs_host_path, ensure_image, image_tag, Engine, Kind};
+use crate::report::Finding;
 use crate::setup::OPERA_VOLUME;
 use crate::unit;
 use std::path::{Path, PathBuf};
@@ -15,6 +17,10 @@ pub const URL: &str = "http://127.0.0.1:8750/jci/gui/index.html";
 const CTL_SECS: u64 = 15;
 const EVAL_SECS: u64 = 6;
 const UP_SECS: u64 = 90;
+/// With `--stock`, Home appears about 21 s after Opera starts (the GUI waits for startup settings).
+const HOME_SECS: u64 = 60;
+/// What the container prints when the baseline has no stock GUI.
+const NO_GUI: &str = "no /jci/gui/index.html in the baseline";
 /// Prefix of an `Err` that is an environment problem (exit 2), not a failed check (exit 1).
 pub const ENV: &str = "(env)";
 const NOT_UP: &str = "preview is not running: `revised-sdk preview up`";
@@ -22,6 +28,36 @@ const NOT_UP: &str = "preview is not running: `revised-sdk preview up`";
 pub struct UpOpts {
     /// Start Opera. Off only for tests of the rest (Opera's license needs the developer's yes).
     pub opera: bool,
+    /// Run the stock GUI from this baseline dir (engine mount source, see `stock_source`)
+    /// instead of the stub page.
+    pub stock: Option<String>,
+}
+
+/// Mount source for the baseline dir. A POSIX absolute path is kept as is: with podman machine
+/// or Docker Desktop it can name a path inside the engine's Linux VM (where the rootfs keeps its
+/// symlinks and modes). Anything else is resolved on the host.
+pub fn stock_source(dir: &Path) -> Result<String, String> {
+    let s = dir.to_string_lossy();
+    if s.starts_with('/') {
+        Ok(s.into_owned())
+    } else {
+        abs_host_path(dir)
+    }
+}
+
+/// Warnings for a baseline dir: the same `ntfs` hint as `baseline check`.
+pub fn stock_warnings(dir: &Path) -> Vec<Finding> {
+    baseline::ntfs_hint(dir).into_iter().collect()
+}
+
+/// Stub control path for `preview ctx`: both ids are `[A-Za-z0-9_]+`.
+pub fn ctx_path(uia: &str, ctxt: &str) -> Result<String, String> {
+    let ok = |x: &str| !x.is_empty() && x.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_');
+    if ok(uia) && ok(ctxt) {
+        Ok(format!("/ctx/{uia}/{ctxt}"))
+    } else {
+        Err(format!("uiaId and ctxtId must be letters, digits or _, got {uia:?} {ctxt:?}"))
+    }
 }
 
 /// Knob/key names -> keycodes the stub page and the HMI SDK understand.
@@ -81,9 +117,9 @@ pub fn reply(log: &str, n: usize) -> Option<Result<String, String>> {
     })
 }
 
-pub fn run_args(tag: &str, project: &str, rvp_rel: &str, opera: bool) -> Vec<String> {
+pub fn run_args(tag: &str, project: &str, rvp_rel: &str, o: &UpOpts) -> Vec<String> {
     let s = |x: &str| x.to_string();
-    vec![
+    let mut a = vec![
         s("run"),
         s("-d"),
         s("--name"),
@@ -99,11 +135,14 @@ pub fn run_args(tag: &str, project: &str, rvp_rel: &str, opera: bool) -> Vec<Str
         s("-e"),
         format!("RVP=/work/{rvp_rel}"),
         s("-e"),
-        format!("START_OPERA={}", opera as u8),
-        s(tag),
-        s("sh"),
-        s("/opt/revised/preview/entry.sh"),
-    ]
+        format!("START_OPERA={}", o.opera as u8),
+    ];
+    if let Some(dir) = &o.stock {
+        // read-only: the container copies /jci/gui into its own writable layer
+        a.extend([s("-v"), format!("{dir}:/stock:ro"), s("-e"), s("STOCK=1")]);
+    }
+    a.extend([s(tag), s("sh"), s("/opt/revised/preview/entry.sh")]);
+    a
 }
 
 /// `shot` target: a `.png` path inside the project.
@@ -176,7 +215,7 @@ pub fn up(e: &Engine, project: &Path, o: &UpOpts) -> Result<String, String> {
         &tag,
         &abs_host_path(project).map_err(|m| format!("{ENV}{m}"))?,
         &rel,
-        o.opera,
+        o,
     );
     if e.kind == Kind::Podman {
         // `logs` is how eval replies are read: do not depend on journald being reachable
@@ -194,19 +233,54 @@ pub fn up(e: &Engine, project: &Path, o: &UpOpts) -> Result<String, String> {
         std::thread::sleep(Duration::from_millis(500));
         let l = logs_text(e);
         if !running(e) {
+            if l.contains(NO_GUI) {
+                return Err(NO_GUI.into());
+            }
             return Err(format!(
                 "preview container stopped:\n{}",
                 tail_lines(&l, 15)
             ));
         }
         if l.contains("[preview] installed") && (!o.opera || eval(e, "1").is_ok()) {
-            return Ok(URL.into());
+            return if o.stock.is_some() && o.opera { wait_home(e) } else { Ok(URL.into()) };
         }
     }
     Err(format!(
         "preview not ready after {UP_SECS}s:\n{}",
         tail_lines(&logs_text(e), 15)
     ))
+}
+
+/// The stock GUI is up once its framework reports the Home context.
+fn wait_home(e: &Engine) -> Result<String, String> {
+    let t0 = Instant::now();
+    let mut last = String::new();
+    while t0.elapsed() < Duration::from_secs(HOME_SECS) {
+        match eval(e, "framework.getCurrCtxtId()") {
+            Ok(v) if v == "HomeScreen" => return Ok(URL.into()),
+            Ok(v) => last = v,
+            Err(m) => last = m,
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    }
+    Err(format!("stock GUI did not reach Home within {HOME_SECS}s (last: {last})"))
+}
+
+/// Switch the stock GUI to `<uiaId>/<ctxtId>` through the stub control port.
+pub fn ctx(e: &Engine, uia: &str, ctxt: &str) -> Result<(), String> {
+    let path = ctx_path(uia, ctxt)?;
+    if !running(e) {
+        return Err(NOT_UP.into());
+    }
+    let js = "require('http').request({host:'127.0.0.1',port:8761,path:process.argv[1],method:'POST'},\
+              function(r){r.pipe(process.stdout)}).on('error',function(){console.log('no stub')}).end()";
+    let (_, out) = engine_out(e, &["exec", CONTAINER, "node", "-e", js, &path])?;
+    match out.trim() {
+        "ok" => Ok(()),
+        "no stub" => Err("preview is not running the stock GUI: `revised-sdk preview up --stock <dir>`".into()),
+        "no mmui" => Err("the stock GUI is not connected to the stub sockets yet".into()),
+        o => Err(format!("ctx failed: {o}")),
+    }
 }
 
 pub fn down(e: &Engine) -> Result<(), String> {

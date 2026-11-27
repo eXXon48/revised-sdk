@@ -1,0 +1,7 @@
+[
+  { "after": "Global.InitGui", "send": [
+    { "msgType": "ctxtChg", "uiaId": "system", "ctxtId": "HomeScreen" },
+    { "msgType": "focusStack", "appIdList": [{ "id": "system" }] },
+    { "msgType": "transition", "enabled": false }
+  ] }
+]

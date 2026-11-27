@@ -1,0 +1,13 @@
+[
+  { "after": "ctx:fmradio/StationList", "send": [
+    { "msgType": "msg", "msgId": "StationListStatusInfo", "uiaId": "fmradio", "params": { "payload": { "StationListStatus": "AVAILABLE" } } }
+  ] },
+  { "dbapi": "radio/FmStationList", "params": { "eCode": 0, "count": 6, "totalCount": 6, "stationList": [
+    { "stationName": "Harbor FM", "frequency": 88100, "genre": "None", "piCode": 1 },
+    { "stationName": "Northline Radio", "frequency": 91400, "genre": "None", "piCode": 2 },
+    { "stationName": "Coastal Jazz", "frequency": 94700, "genre": "None", "piCode": 3 },
+    { "stationName": "Metro Talk", "frequency": 97300, "genre": "None", "piCode": 4 },
+    { "stationName": "Valley Classics", "frequency": 101900, "genre": "None", "piCode": 5 },
+    { "stationName": "Signal 105", "frequency": 105500, "genre": "None", "piCode": 6 }
+  ] } }
+]
