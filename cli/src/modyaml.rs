@@ -128,10 +128,12 @@ pub fn parse(text: &str) -> Result<ModYaml, Vec<Finding>> {
             errs.push(Finding::error("change-live", &format!("changes[{i}].live {:?} must be an absolute path on the unit", c.live)));
         }
         let f = &c.file;
-        if f.is_empty() || f.starts_with('/') || f.contains("..") || f == "ui" || f.starts_with("ui/") {
+        // By segment, so `./ui/x` or `ui/./x` cannot slip into ui/; `/abs` and `a//b` give an empty segment.
+        let bad_seg = f.split('/').any(|s| matches!(s, "" | "." | ".."));
+        if f.contains('\\') || bad_seg || f.split('/').next() == Some("ui") {
             errs.push(Finding::error(
                 "change-file",
-                &format!("changes[{i}].file {f:?} must be a relative project path outside ui/, without `..`"),
+                &format!("changes[{i}].file {f:?} must be a relative project path outside ui/, with `/` separators and no empty, `.` or `..` segments"),
             ));
         }
         if c.reason.trim().is_empty() {

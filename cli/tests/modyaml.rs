@@ -77,12 +77,13 @@ fn no_app_and_no_changes() {
 #[test]
 fn change_shape_rules() {
     let one = |live: &str, file: &str, reason: &str| {
-        let y = format!("changes:\n  - live: \"{live}\"\n    file: \"{file}\"\n    apply: three-way\n    reason: \"{reason}\"\n");
+        let y = format!("changes:\n  - live: \"{live}\"\n    file: '{file}'\n    apply: three-way\n    reason: \"{reason}\"\n");
         parse(&yaml(&y)).map(|m| m.changes[0].apply).map_err(|e| e[0].rule.clone())
     };
     assert_eq!(one("/jci/x", "stock/x", "r"), Ok(ChangeApply::ThreeWay));
     assert_eq!(one("jci/x", "stock/x", "r"), Err("change-live".into()));
-    for f in ["ui/x", "ui", "a/../b", "/abs", ""] {
+    assert_eq!(one("/jci/x", "stock/a..b", "r"), Ok(ChangeApply::ThreeWay));
+    for f in ["ui/x", "ui", "a/../b", "/abs", "", "./ui/x", "ui\\x", "ui/./x", "a//b", "a/"] {
         assert_eq!(one("/jci/x", f, "r"), Err("change-file".into()), "{f}");
     }
     assert_eq!(one("/jci/x", "stock/x", " "), Err("change-reason".into()));

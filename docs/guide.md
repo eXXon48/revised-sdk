@@ -49,7 +49,7 @@ Every finding has a `rule` id, a `level` (`error` or `warning`), and `file`, `li
 | `no-app` | error | `mod.yaml` has neither an `app:` block nor a `changes:` list. |
 | `category` | error | `category` is not `Apps`, `Skins` or `System mods`. Without it, the category is `Apps` for a project with an app and `System mods` otherwise. |
 | `change-live` | error | A change's `live` is not an absolute path on the unit. |
-| `change-file` | error | A change's `file` is empty, absolute, under `ui/`, or contains `..`. |
+| `change-file` | error | A change's `file` is empty or absolute, contains a backslash, has an empty, `.` or `..` segment, or starts with the `ui` segment. |
 | `change-reason` | error | A change's `reason` is empty. |
 | `native-phase2` | error | `native:` is set. Native backends are not supported yet. |
 
